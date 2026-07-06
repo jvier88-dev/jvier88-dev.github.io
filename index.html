@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#0a0a0a">
+  <title>QuatroLetras</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Pantalla de gestión -->
+  <div id="manage-screen" class="screen active">
+    <header class="manage-header">
+      <h1>QuatroLetras</h1>
+      <p class="subtitle">Letras para el escenario</p>
+    </header>
+
+    <main class="manage-main">
+      <section class="song-list-section">
+        <div class="section-header">
+          <h2>Setlist</h2>
+          <button id="btn-new-song" class="btn btn-primary">+ Nueva canción</button>
+        </div>
+        <p class="list-hint">El número define el orden del setlist y del pedal. Usa ↑↓ o arrastra para reordenar.</p>
+        <div id="song-list" class="song-list"></div>
+        <p id="empty-state" class="empty-state">No hay canciones todavía. Crea la primera.</p>
+      </section>
+
+      <section class="pedal-settings">
+        <h2>Pedal turner</h2>
+        <p class="pedal-hint">Conecta el pedal por USB/Bluetooth. La mayoría envían Page Down y Page Up.</p>
+        <div class="pedal-keys">
+          <label class="field pedal-field">
+            <span>Pedal avanzar (siguiente estrofa / canción)</span>
+            <button type="button" id="btn-set-next-key" class="btn btn-ghost pedal-key-btn">Page Down</button>
+          </label>
+          <label class="field pedal-field">
+            <span>Pedal retroceder (estrofa anterior / listado)</span>
+            <button type="button" id="btn-set-back-key" class="btn btn-ghost pedal-key-btn">Page Up</button>
+          </label>
+        </div>
+        <p id="pedal-capture-hint" class="pedal-capture hidden">Pulsa el botón del pedal ahora…</p>
+      </section>
+    </main>
+  </div>
+
+  <!-- Formulario de canción -->
+  <div id="edit-screen" class="screen">
+    <header class="edit-header">
+      <button id="btn-back" class="btn btn-ghost" aria-label="Volver">← Volver</button>
+      <h2 id="edit-title">Nueva canción</h2>
+      <button id="btn-save" class="btn btn-primary">Guardar</button>
+    </header>
+    <main class="edit-main">
+      <label class="field">
+        <span>Título</span>
+        <input type="text" id="song-title" placeholder="Nombre de la canción" autocomplete="off">
+      </label>
+      <label class="field">
+        <span>Letra</span>
+        <textarea id="song-lyrics" placeholder="Pega o escribe la letra aquí&#10;&#10;Deja una línea en blanco entre estrofas&#10;(cada estrofa es un paso del pedal)" rows="20"></textarea>
+      </label>
+      <button id="btn-delete" class="btn btn-danger hidden">Eliminar canción</button>
+    </main>
+  </div>
+
+  <!-- Pantalla de presentación -->
+  <div id="display-screen" class="screen">
+    <div id="display-content" class="display-content"></div>
+    <div class="display-controls">
+      <button id="btn-exit-display" class="btn btn-ghost" aria-label="Salir">✕</button>
+      <div class="font-controls">
+        <button id="btn-font-down" class="btn btn-ghost" aria-label="Letra más pequeña">A−</button>
+        <button id="btn-font-up" class="btn btn-ghost" aria-label="Letra más grande">A+</button>
+      </div>
+      <button id="btn-fullscreen" class="btn btn-ghost" aria-label="Pantalla completa">⛶</button>
+    </div>
+    <div id="display-title-bar" class="display-title-bar"></div>
+    <div id="section-indicator" class="section-indicator"></div>
+  </div>
+
+  <!-- Selector rápido de canciones -->
+  <div id="picker-overlay" class="overlay hidden">
+    <div class="picker-panel">
+      <div class="picker-header">
+        <h2>Elegir canción</h2>
+        <button id="btn-close-picker" class="btn btn-ghost" aria-label="Cerrar">✕</button>
+      </div>
+      <div id="picker-list" class="picker-list"></div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
