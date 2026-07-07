@@ -1,4 +1,5 @@
 const STORAGE_KEY = 'quatroletras-songs';
+const SETLIST_KEY = 'quatroletras-setlist';
 const FONT_SIZE_KEY = 'quatroletras-font-size';
 const PEDAL_KEYS_KEY = 'quatroletras-pedal-keys';
 
@@ -8,6 +9,7 @@ const DEFAULT_PEDAL_KEYS = {
 };
 
 let songs = [];
+let setlistIds = [];
 let editingId = null;
 let currentDisplayId = null;
 let currentSections = [];
@@ -25,8 +27,10 @@ const screens = {
   display: document.getElementById('display-screen'),
 };
 
-const songList = document.getElementById('song-list');
-const emptyState = document.getElementById('empty-state');
+const setlistList = document.getElementById('setlist-list');
+const setlistEmpty = document.getElementById('setlist-empty');
+const libraryList = document.getElementById('library-list');
+const libraryEmpty = document.getElementById('library-empty');
 const songTitle = document.getElementById('song-title');
 const songLyrics = document.getElementById('song-lyrics');
 const editTitle = document.getElementById('edit-title');
@@ -36,6 +40,9 @@ const displayTitleBar = document.getElementById('display-title-bar');
 const sectionIndicator = document.getElementById('section-indicator');
 const pickerOverlay = document.getElementById('picker-overlay');
 const pickerList = document.getElementById('picker-list');
+const addSetlistOverlay = document.getElementById('add-setlist-overlay');
+const addSetlistList = document.getElementById('add-setlist-list');
+const addSetlistEmpty = document.getElementById('add-setlist-empty');
 const btnSetNextKey = document.getElementById('btn-set-next-key');
 const btnSetBackKey = document.getElementById('btn-set-back-key');
 const pedalCaptureHint = document.getElementById('pedal-capture-hint');
@@ -66,6 +73,79 @@ function saveSongs() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(songs));
 }
 
+function loadSetlist() {
+  try {
+    setlistIds = JSON.parse(localStorage.getItem(SETLIST_KEY)) || [];
+  } catch {
+    setlistIds = [];
+  }
+  // Migración: datos antiguos sin setlist separado
+  if (setlistIds.length === 0 && songs.length > 0) {
+    setlistIds = songs.map(s => s.id);
+    saveSetlist();
+  }
+  pruneSetlist();
+}
+
+function saveSetlist() {
+  localStorage.setItem(SETLIST_KEY, JSON.stringify(setlistIds));
+}
+
+function pruneSetlist() {
+  const valid = new Set(songs.map(s => s.id));
+  const pruned = setlistIds.filter(id => valid.has(id));
+  if (pruned.length !== setlistIds.length) {
+    setlistIds = pruned;
+    saveSetlist();
+  }
+}
+
+// ── Setlist helpers ──
+
+function getSetlistSongs() {
+  const map = new Map(songs.map(s => [s.id, s]));
+  return setlistIds.map(id => map.get(id)).filter(Boolean);
+}
+
+function isInSetlist(id) {
+  return setlistIds.includes(id);
+}
+
+function getSetlistIndex(id) {
+  return setlistIds.indexOf(id);
+}
+
+function getSongNumber(id) {
+  const idx = getSetlistIndex(id);
+  return idx >= 0 ? idx + 1 : 0;
+}
+
+function addToSetlist(id) {
+  if (!songs.some(s => s.id === id) || isInSetlist(id)) return;
+  setlistIds.push(id);
+  saveSetlist();
+  renderAll();
+}
+
+function removeFromSetlist(id) {
+  setlistIds = setlistIds.filter(x => x !== id);
+  saveSetlist();
+  renderAll();
+}
+
+function moveSetlistItem(fromIndex, toIndex) {
+  if (fromIndex < 0 || toIndex < 0 || fromIndex >= setlistIds.length || toIndex >= setlistIds.length) return;
+  if (fromIndex === toIndex) return;
+  const [item] = setlistIds.splice(fromIndex, 1);
+  setlistIds.splice(toIndex, 0, item);
+  saveSetlist();
+  renderSetlist();
+}
+
+function moveSetlistById(id, delta) {
+  moveSetlistItem(getSetlistIndex(id), getSetlistIndex(id) + delta);
+}
+
 // ── Navigation ──
 
 function showScreen(name) {
@@ -77,38 +157,22 @@ function isPickerOpen() {
   return !pickerOverlay.classList.contains('hidden');
 }
 
-function getSongIndex(id) {
-  return songs.findIndex(s => s.id === id);
+function renderAll() {
+  renderSetlist();
+  renderLibrary();
 }
 
-function getSongNumber(id) {
-  const idx = getSongIndex(id);
-  return idx >= 0 ? idx + 1 : 0;
-}
+// ── Setlist UI ──
 
-function moveSong(fromIndex, toIndex) {
-  if (fromIndex < 0 || toIndex < 0 || fromIndex >= songs.length || toIndex >= songs.length) return;
-  if (fromIndex === toIndex) return;
-  const [item] = songs.splice(fromIndex, 1);
-  songs.splice(toIndex, 0, item);
-  saveSongs();
-  renderSongList();
-}
+function renderSetlist() {
+  const items = getSetlistSongs();
+  setlistList.innerHTML = '';
+  setlistEmpty.classList.toggle('hidden', items.length > 0);
 
-function moveSongById(id, delta) {
-  moveSong(getSongIndex(id), getSongIndex(id) + delta);
-}
-
-// ── Song list ──
-
-function renderSongList() {
-  songList.innerHTML = '';
-  emptyState.classList.toggle('hidden', songs.length > 0);
-
-  songs.forEach((song, index) => {
+  items.forEach((song, index) => {
     const num = index + 1;
     const isFirst = index === 0;
-    const isLast = index === songs.length - 1;
+    const isLast = index === items.length - 1;
     const item = document.createElement('div');
     item.className = 'song-item';
     item.dataset.id = song.id;
@@ -125,13 +189,38 @@ function renderSongList() {
         <button type="button" class="btn btn-ghost" data-action="down" data-id="${song.id}" ${isLast ? 'disabled' : ''} aria-label="Bajar en el setlist">↓</button>
       </div>
       <div class="song-item-actions">
-        <button type="button" class="btn btn-ghost btn-icon" data-action="edit" data-id="${song.id}" aria-label="Editar">✎</button>
+        <button type="button" class="btn btn-ghost btn-icon" data-action="remove" data-id="${song.id}" aria-label="Quitar del setlist" title="Quitar del setlist">−</button>
         <button type="button" class="btn btn-primary btn-icon" data-action="show" data-id="${song.id}" aria-label="Mostrar">▶</button>
       </div>
     `;
-    songList.appendChild(item);
+    setlistList.appendChild(item);
   });
-  
+}
+
+function renderLibrary() {
+  libraryList.innerHTML = '';
+  libraryEmpty.classList.toggle('hidden', songs.length > 0);
+
+  songs.forEach(song => {
+    const inSetlist = isInSetlist(song.id);
+    const item = document.createElement('div');
+    item.className = 'song-item song-item-library';
+    item.dataset.id = song.id;
+    item.innerHTML = `
+      <div class="song-item-info">
+        <div class="song-item-title">
+          ${escapeHtml(song.title)}
+          ${inSetlist ? '<span class="in-setlist-badge">En setlist</span>' : ''}
+        </div>
+        <div class="song-item-preview">${escapeHtml(preview(song.lyrics))}</div>
+      </div>
+      <div class="song-item-actions">
+        ${inSetlist ? '' : `<button type="button" class="btn btn-ghost" data-action="add-setlist" data-id="${song.id}">+ Setlist</button>`}
+        <button type="button" class="btn btn-ghost btn-icon" data-action="edit" data-id="${song.id}" aria-label="Editar">✎</button>
+      </div>
+    `;
+    libraryList.appendChild(item);
+  });
 }
 
 function preview(lyrics) {
@@ -145,6 +234,35 @@ function escapeHtml(str) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+// ── Add to setlist overlay ──
+
+function openAddSetlistOverlay() {
+  const available = songs.filter(s => !isInSetlist(s.id));
+  addSetlistList.innerHTML = '';
+  addSetlistEmpty.classList.toggle('hidden', available.length > 0);
+  addSetlistList.classList.toggle('hidden', available.length === 0);
+
+  available.forEach(song => {
+    const btn = document.createElement('button');
+    btn.className = 'picker-item';
+    btn.innerHTML = `
+      <span class="picker-item-title">${escapeHtml(song.title)}</span>
+      <span class="picker-item-add">+</span>
+    `;
+    btn.addEventListener('click', () => {
+      addToSetlist(song.id);
+      openAddSetlistOverlay();
+    });
+    addSetlistList.appendChild(btn);
+  });
+
+  addSetlistOverlay.classList.remove('hidden');
+}
+
+function closeAddSetlistOverlay() {
+  addSetlistOverlay.classList.add('hidden');
 }
 
 // ── Edit ──
@@ -190,20 +308,25 @@ function saveSong() {
       song.lyrics = lyrics;
     }
   } else {
-    songs.push({ id: crypto.randomUUID(), title, lyrics });
+    const id = crypto.randomUUID();
+    songs.push({ id, title, lyrics });
+    setlistIds.push(id);
+    saveSetlist();
   }
 
   saveSongs();
-  renderSongList();
+  renderAll();
   showScreen('manage');
 }
 
 function deleteSong() {
   if (!editingId) return;
-  if (!confirm('¿Eliminar esta canción?')) return;
+  if (!confirm('¿Eliminar esta canción de la biblioteca? También se quitará del setlist.')) return;
   songs = songs.filter(s => s.id !== editingId);
+  setlistIds = setlistIds.filter(id => id !== editingId);
   saveSongs();
-  renderSongList();
+  saveSetlist();
+  renderAll();
   showScreen('manage');
 }
 
@@ -236,7 +359,7 @@ function updateSectionIndicator(song) {
   const total = currentSections.length;
   const current = currentSectionIndex + 1;
   const num = getSongNumber(song.id);
-  const prefix = `${num}. `;
+  const prefix = num > 0 ? `${num}. ` : '';
   displayTitleBar.textContent = total > 1
     ? `${prefix}${song.title} · ${current}/${total}`
     : `${prefix}${song.title}`;
@@ -348,10 +471,11 @@ function pedalBack() {
 }
 
 function goToNextSong() {
-  if (songs.length <= 1) return;
-  const idx = getSongIndex(currentDisplayId);
-  const nextIdx = idx < songs.length - 1 ? idx + 1 : 0;
-  showSong(songs[nextIdx].id, 0);
+  const setlist = getSetlistSongs();
+  if (setlist.length <= 1) return;
+  const idx = getSetlistIndex(currentDisplayId);
+  const nextIdx = idx >= 0 && idx < setlist.length - 1 ? idx + 1 : 0;
+  showSong(setlist[nextIdx].id, 0);
   flashControls();
 }
 
@@ -390,7 +514,6 @@ function stopPedalCapture() {
 
 function isPedalKey(key, action) {
   if (key === pedalKeys[action]) return true;
-  // Atajos extra sin configurar (pedales comunes)
   if (action === 'next' && (key === 'ArrowRight' || key === 'ArrowDown')) return true;
   if (action === 'back' && (key === 'ArrowLeft' || key === 'ArrowUp')) return true;
   return false;
@@ -407,7 +530,6 @@ function handlePedalKeydown(e) {
     return;
   }
 
-  // No interceptar mientras se escribe
   if (screens.edit.classList.contains('active')) return;
   const tag = e.target.tagName;
   if (tag === 'INPUT' || tag === 'TEXTAREA') return;
@@ -439,11 +561,12 @@ function renderPickerHighlight() {
 }
 
 function openPicker() {
-  if (songs.length === 0) return;
-  pickerIndex = Math.max(0, getSongIndex(currentDisplayId));
+  const setlist = getSetlistSongs();
+  if (setlist.length === 0) return;
+  pickerIndex = Math.max(0, getSetlistIndex(currentDisplayId));
   pickerList.innerHTML = '';
 
-  songs.forEach((song, i) => {
+  setlist.forEach((song, i) => {
     const btn = document.createElement('button');
     btn.className = 'picker-item' + (i === pickerIndex ? ' active' : '');
     btn.innerHTML = `
@@ -467,15 +590,18 @@ function closePicker() {
 }
 
 function pickerNavigate(delta) {
-  if (songs.length === 0) return;
-  pickerIndex = (pickerIndex + delta + songs.length) % songs.length;
+  const setlist = getSetlistSongs();
+  if (setlist.length === 0) return;
+  pickerIndex = (pickerIndex + delta + setlist.length) % setlist.length;
   renderPickerHighlight();
-  showSong(songs[pickerIndex].id, 0);
+  showSong(setlist[pickerIndex].id, 0);
 }
 
 // ── Event listeners ──
 
 document.getElementById('btn-new-song').addEventListener('click', openNewSong);
+document.getElementById('btn-add-to-setlist').addEventListener('click', openAddSetlistOverlay);
+document.getElementById('btn-close-add-setlist').addEventListener('click', closeAddSetlistOverlay);
 document.getElementById('btn-back').addEventListener('click', () => showScreen('manage'));
 document.getElementById('btn-save').addEventListener('click', saveSong);
 document.getElementById('btn-delete').addEventListener('click', deleteSong);
@@ -498,6 +624,10 @@ pickerOverlay.addEventListener('click', e => {
   if (e.target === pickerOverlay) closePicker();
 });
 
+addSetlistOverlay.addEventListener('click', e => {
+  if (e.target === addSetlistOverlay) closeAddSetlistOverlay();
+});
+
 // ── Reordenar setlist ──
 
 let dragSongId = null;
@@ -507,18 +637,18 @@ function clearDragState() {
   dragSongId = null;
   pointerDrag.id = null;
   pointerDrag.active = false;
-  songList.querySelectorAll('.song-item').forEach(el => {
+  setlistList.querySelectorAll('.song-item').forEach(el => {
     el.classList.remove('dragging', 'drag-over');
   });
 }
 
 function setDragOverItem(item) {
-  songList.querySelectorAll('.song-item').forEach(el => {
+  setlistList.querySelectorAll('.song-item').forEach(el => {
     el.classList.toggle('drag-over', item && el === item);
   });
 }
 
-songList.addEventListener('dragstart', e => {
+setlistList.addEventListener('dragstart', e => {
   const handle = e.target.closest('.drag-handle');
   if (!handle) {
     e.preventDefault();
@@ -530,24 +660,24 @@ songList.addEventListener('dragstart', e => {
   e.dataTransfer.setData('text/plain', dragSongId);
 });
 
-songList.addEventListener('dragend', clearDragState);
+setlistList.addEventListener('dragend', clearDragState);
 
-songList.addEventListener('dragover', e => {
+setlistList.addEventListener('dragover', e => {
   e.preventDefault();
   const item = e.target.closest('.song-item');
   if (!item || item.dataset.id === dragSongId) return;
   setDragOverItem(item);
 });
 
-songList.addEventListener('drop', e => {
+setlistList.addEventListener('drop', e => {
   e.preventDefault();
   const item = e.target.closest('.song-item');
   if (!item || !dragSongId) return;
-  moveSong(getSongIndex(dragSongId), getSongIndex(item.dataset.id));
+  moveSetlistItem(getSetlistIndex(dragSongId), getSetlistIndex(item.dataset.id));
   clearDragState();
 });
 
-songList.addEventListener('pointerdown', e => {
+setlistList.addEventListener('pointerdown', e => {
   const handle = e.target.closest('.drag-handle');
   if (!handle || e.pointerType === 'mouse') return;
   pointerDrag.id = handle.dataset.id;
@@ -556,26 +686,26 @@ songList.addEventListener('pointerdown', e => {
   handle.closest('.song-item')?.classList.add('dragging');
 });
 
-songList.addEventListener('pointermove', e => {
+setlistList.addEventListener('pointermove', e => {
   if (!pointerDrag.active) return;
   const el = document.elementFromPoint(e.clientX, e.clientY);
   const item = el?.closest('.song-item');
   setDragOverItem(item && item.dataset.id !== pointerDrag.id ? item : null);
 });
 
-songList.addEventListener('pointerup', e => {
+setlistList.addEventListener('pointerup', e => {
   if (!pointerDrag.active) return;
   const el = document.elementFromPoint(e.clientX, e.clientY);
   const item = el?.closest('.song-item');
   if (item && item.dataset.id !== pointerDrag.id) {
-    moveSong(getSongIndex(pointerDrag.id), getSongIndex(item.dataset.id));
+    moveSetlistItem(getSetlistIndex(pointerDrag.id), getSetlistIndex(item.dataset.id));
   }
   clearDragState();
 });
 
-songList.addEventListener('pointercancel', clearDragState);
+setlistList.addEventListener('pointercancel', clearDragState);
 
-songList.addEventListener('click', e => {
+setlistList.addEventListener('click', e => {
   if (e.target.closest('.drag-handle') || e.target.closest('.song-reorder')) return;
 
   const btn = e.target.closest('[data-action]');
@@ -588,14 +718,22 @@ songList.addEventListener('click', e => {
     return;
   }
   const { action, id } = btn.dataset;
-  if (action === 'edit') openEditSong(id);
   if (action === 'show') showSong(id);
-  if (action === 'up') moveSongById(id, -1);
-  if (action === 'down') moveSongById(id, 1);
+  if (action === 'remove') removeFromSetlist(id);
+  if (action === 'up') moveSetlistById(id, -1);
+  if (action === 'down') moveSetlistById(id, 1);
+});
+
+libraryList.addEventListener('click', e => {
+  const btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  const { action, id } = btn.dataset;
+  if (action === 'edit') openEditSong(id);
+  if (action === 'add-setlist') addToSetlist(id);
 });
 
 displayContent.addEventListener('click', () => {
-  if (songs.length > 1) openPicker();
+  if (getSetlistSongs().length > 1) openPicker();
 });
 
 let controlsTimer;
@@ -635,6 +773,7 @@ document.addEventListener('keydown', e => {
 
 // ── Init ──
 loadSongs();
-renderSongList();
+loadSetlist();
+renderAll();
 applyFontSize();
 updatePedalKeyButtons();

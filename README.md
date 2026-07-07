@@ -5,10 +5,11 @@ App web para mostrar letras de canciones a pantalla completa en tablet durante p
 ## Uso
 
 1. Abre `index.html` en el navegador del tablet (Chrome o Safari).
-2. Crea canciones con el botón **+ Nueva canción**.
-3. Pulsa **▶** en cualquier canción para mostrarla a pantalla completa.
-4. Toca la pantalla para ver los controles (tamaño de letra, pantalla completa, cerrar).
-5. Si tienes varias canciones, toca la letra para abrir el selector rápido.
+2. Crea canciones en **Biblioteca** con **+ Nueva canción**.
+3. Organiza el **Setlist** con el orden que quieras para la presentación (arrastra, ↑↓, o **+ Añadir canciones**).
+4. Pulsa **▶** en una canción del setlist para mostrarla a pantalla completa.
+5. Toca la pantalla para ver los controles (tamaño de letra, pantalla completa, cerrar).
+6. Si tienes varias canciones en el setlist, toca la letra para abrir el selector rápido.
 
 ## Controles en modo presentación
 
@@ -46,11 +47,18 @@ En Chrome/Safari: menú → **Añadir a pantalla de inicio**. La app funciona si
 
 Las canciones se guardan en el navegador (localStorage). No se envían a ningún servidor.
 
-## Setlist y orden
+## Biblioteca y setlist
 
-Cada canción tiene un **número correlativo** (1, 2, 3…) según su posición en el setlist. Ese orden define:
+La app separa dos conceptos:
 
-- Cómo se muestran en la lista y en el selector
+- **Biblioteca**: todas tus canciones. Créalas, edítalas o elimínalas aquí.
+- **Setlist**: el orden de presentación en escenario. Puedes incluir solo las canciones que quieras y ordenarlas como prefieras.
+
+Al crear una canción nueva se añade automáticamente al final del setlist. Para quitar una canción del setlist sin borrarla de la biblioteca, usa el botón **−**. Para volver a añadirla, pulsa **+ Setlist** en la biblioteca o **+ Añadir canciones** en el setlist.
+
+El número en el setlist define:
+
+- Cómo se muestran en el selector de presentación
 - El avance con el **pedal** (siguiente canción = número siguiente)
 
-Para reordenar: usa los botones **↑ ↓** o **arrastra** el ícono ⠿ en cada fila.
+Para reordenar el setlist: usa los botones **↑ ↓** o **arrastra** el ícono ⠿ en cada fila.

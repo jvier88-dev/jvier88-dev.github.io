@@ -18,14 +18,24 @@
     </header>
 
     <main class="manage-main">
-      <section class="song-list-section">
+      <section class="setlist-section">
         <div class="section-header">
           <h2>Setlist</h2>
+          <button id="btn-add-to-setlist" class="btn btn-ghost">+ Añadir canciones</button>
+        </div>
+        <p class="list-hint">Orden de presentación en escenario. Usa ↑↓ o arrastra ⠿ para reordenar.</p>
+        <div id="setlist-list" class="song-list"></div>
+        <p id="setlist-empty" class="empty-state">El setlist está vacío. Añade canciones desde la biblioteca.</p>
+      </section>
+
+      <section class="library-section">
+        <div class="section-header">
+          <h2>Biblioteca</h2>
           <button id="btn-new-song" class="btn btn-primary">+ Nueva canción</button>
         </div>
-        <p class="list-hint">El número define el orden del setlist y del pedal. Usa ↑↓ o arrastra para reordenar.</p>
-        <div id="song-list" class="song-list"></div>
-        <p id="empty-state" class="empty-state">No hay canciones todavía. Crea la primera.</p>
+        <p class="list-hint">Todas tus canciones. Créalas y edítalas aquí; el setlist define cuáles y en qué orden se presentan.</p>
+        <div id="library-list" class="song-list"></div>
+        <p id="library-empty" class="empty-state">No hay canciones todavía. Crea la primera.</p>
       </section>
 
       <section class="pedal-settings">
@@ -79,6 +89,18 @@
     </div>
     <div id="display-title-bar" class="display-title-bar"></div>
     <div id="section-indicator" class="section-indicator"></div>
+  </div>
+
+  <!-- Añadir canciones al setlist -->
+  <div id="add-setlist-overlay" class="overlay hidden">
+    <div class="picker-panel">
+      <div class="picker-header">
+        <h2>Añadir al setlist</h2>
+        <button id="btn-close-add-setlist" class="btn btn-ghost" aria-label="Cerrar">✕</button>
+      </div>
+      <div id="add-setlist-list" class="picker-list"></div>
+      <p id="add-setlist-empty" class="empty-state hidden">Todas las canciones ya están en el setlist.</p>
+    </div>
   </div>
 
   <!-- Selector rápido de canciones -->
