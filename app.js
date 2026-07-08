@@ -50,6 +50,8 @@ const addSetlistEmpty = document.getElementById('add-setlist-empty');
 const btnSetNextKey = document.getElementById('btn-set-next-key');
 const btnSetBackKey = document.getElementById('btn-set-back-key');
 const pedalCaptureHint = document.getElementById('pedal-capture-hint');
+const btnManageFullscreen = document.getElementById('btn-manage-fullscreen');
+const importFileInput = document.getElementById('import-file');
 
 // ── Storage ──
 
@@ -382,22 +384,19 @@ function renderSectionLines(container, text) {
 }
 
 function updateSectionIndicator(song) {
-  const total = currentSections.length;
-  const num = getSongNumber(song.id);
-  const prefix = num > 0 ? `${num}. ` : '';
-
   if (showingTitle) {
-    displayTitleBar.textContent = `${prefix}${song.title}`;
+    displayTitleBar.textContent = '';
+    displayTitleBar.classList.remove('visible');
     sectionIndicator.textContent = '';
     sectionIndicator.classList.remove('visible');
     return;
   }
 
-  const current = currentSectionIndex + 1;
-  displayTitleBar.textContent = total > 1
-    ? `${prefix}${song.title} · ${current}/${total}`
-    : `${prefix}${song.title}`;
-  sectionIndicator.textContent = total > 1 ? `${current} / ${total}` : '';
+  displayTitleBar.textContent = '';
+  displayTitleBar.classList.remove('visible');
+
+  const total = currentSections.length;
+  sectionIndicator.textContent = total > 1 ? `${currentSectionIndex + 1} / ${total}` : '';
   sectionIndicator.classList.toggle('visible', total > 1);
 }
 
@@ -451,7 +450,7 @@ function renderLyrics(song) {
 
   currentSections.forEach((sectionText, i) => {
     const section = document.createElement('div');
-    section.className = 'lyrics-section' + (i === currentSectionIndex ? ' active' : '');
+    section.className = 'lyrics-section' + (!showingTitle && i === currentSectionIndex ? ' active' : '');
     renderSectionLines(section, sectionText);
     block.appendChild(section);
   });
@@ -479,6 +478,93 @@ function toggleFullscreen() {
   } else {
     document.exitFullscreen?.();
   }
+}
+
+function updateFullscreenButtons() {
+  const isFs = !!document.fullscreenElement;
+  const label = isFs ? 'Salir de pantalla completa' : 'Pantalla completa';
+  btnManageFullscreen?.setAttribute('aria-label', label);
+  btnManageFullscreen?.setAttribute('title', label);
+  document.getElementById('btn-fullscreen')?.setAttribute('aria-label', label);
+}
+
+// ── Exportar / Importar ──
+
+function buildExportData() {
+  return {
+    version: 1,
+    app: 'quatroletras',
+    exportedAt: new Date().toISOString(),
+    songs: songs.map(s => ({ id: s.id, title: s.title, lyrics: s.lyrics })),
+    setlist: [...setlistIds],
+  };
+}
+
+function exportFilename() {
+  const date = new Date().toISOString().slice(0, 10);
+  return `quatroletras-${date}.json`;
+}
+
+async function exportLibrary() {
+  const data = buildExportData();
+  const json = JSON.stringify(data, null, 2);
+  const filename = exportFilename();
+  const file = new File([json], filename, { type: 'application/json' });
+
+  if (navigator.share && navigator.canShare?.({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: 'QuatroLetras' });
+      return;
+    } catch (err) {
+      if (err.name === 'AbortError') return;
+    }
+  }
+
+  const url = URL.createObjectURL(file);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function validateImportData(raw) {
+  if (!raw || raw.app !== 'quatroletras' || !Array.isArray(raw.songs)) {
+    throw new Error('Archivo no válido. Usa un export de QuatroLetras.');
+  }
+  const validSongs = raw.songs.filter(
+    s => s && typeof s.id === 'string' && typeof s.title === 'string' && typeof s.lyrics === 'string'
+  );
+  if (validSongs.length === 0) throw new Error('El archivo no contiene canciones válidas.');
+  return {
+    songs: validSongs,
+    setlist: Array.isArray(raw.setlist) ? raw.setlist.filter(id => typeof id === 'string') : [],
+  };
+}
+
+function importLibrary(data) {
+  const songMap = new Map(songs.map(s => [s.id, s]));
+  data.songs.forEach(imported => {
+    const existing = songMap.get(imported.id);
+    if (existing) {
+      existing.title = imported.title;
+      existing.lyrics = imported.lyrics;
+    } else {
+      songs.push({ id: imported.id, title: imported.title, lyrics: imported.lyrics });
+      songMap.set(imported.id, imported);
+    }
+  });
+
+  const validIds = new Set(songs.map(s => s.id));
+  const importedSetlist = data.setlist.filter(id => validIds.has(id));
+  importedSetlist.forEach(id => {
+    if (!setlistIds.includes(id)) setlistIds.push(id);
+  });
+
+  saveSongs();
+  saveSetlist();
+  pruneSetlist();
+  renderAll();
 }
 
 // ── Pedal navigation ──
@@ -683,6 +769,26 @@ document.getElementById('btn-font-up').addEventListener('click', () => adjustFon
 document.getElementById('btn-font-down').addEventListener('click', () => adjustFontSize(-0.15));
 document.getElementById('btn-fullscreen').addEventListener('click', toggleFullscreen);
 document.getElementById('btn-close-picker').addEventListener('click', closePicker);
+btnManageFullscreen?.addEventListener('click', toggleFullscreen);
+document.getElementById('btn-export')?.addEventListener('click', exportLibrary);
+document.getElementById('btn-import')?.addEventListener('click', () => importFileInput?.click());
+importFileInput?.addEventListener('change', async e => {
+  const file = e.target.files?.[0];
+  e.target.value = '';
+  if (!file) return;
+
+  try {
+    const raw = JSON.parse(await file.text());
+    const data = validateImportData(raw);
+    const msg = `¿Importar ${data.songs.length} canción${data.songs.length === 1 ? '' : 'es'}? Se fusionarán con la biblioteca actual y se añadirán al setlist las que falten.`;
+    if (!confirm(msg)) return;
+    importLibrary(data);
+  } catch (err) {
+    alert(err.message || 'No se pudo importar el archivo.');
+  }
+});
+
+document.addEventListener('fullscreenchange', updateFullscreenButtons);
 
 btnSetNextKey.addEventListener('click', () => startPedalCapture('next'));
 btnSetBackKey.addEventListener('click', () => startPedalCapture('back'));
@@ -830,7 +936,7 @@ screens.display.addEventListener('touchend', e => {
   if (Math.abs(dx) < SWIPE_MIN_DISTANCE || Math.abs(dx) < Math.abs(dy)) return;
 
   swipeHandled = true;
-  if (dx > 0) pedalNext();
+  if (dx < 0) pedalNext();
   else pedalBack();
 }, { passive: true });
 
@@ -842,14 +948,21 @@ let controlsTimer;
 function flashControls() {
   const controls = document.querySelector('.display-controls');
   controls.classList.add('visible');
-  displayTitleBar.classList.add('visible');
-  sectionIndicator.classList.add('visible');
   clearTimeout(controlsTimer);
   controlsTimer = setTimeout(() => {
     controls.classList.remove('visible');
-    displayTitleBar.classList.remove('visible');
-    if (currentSections.length <= 1) sectionIndicator.classList.remove('visible');
+    if (!showingTitle && currentSections.length > 1) {
+      sectionIndicator.classList.add('visible');
+    } else {
+      sectionIndicator.classList.remove('visible');
+    }
   }, 2500);
+
+  if (showingTitle) {
+    sectionIndicator.classList.remove('visible');
+    return;
+  }
+  if (currentSections.length > 1) sectionIndicator.classList.add('visible');
 }
 
 screens.display.addEventListener('click', flashControls);
@@ -885,3 +998,4 @@ loadSetlist();
 renderAll();
 applyFontSize();
 updatePedalKeyButtons();
+updateFullscreenButtons();

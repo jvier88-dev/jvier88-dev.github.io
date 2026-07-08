@@ -13,8 +13,13 @@
   <!-- Pantalla de gestión -->
   <div id="manage-screen" class="screen active">
     <header class="manage-header">
-      <h1>QuatroLetras</h1>
-      <p class="subtitle">Letras para el escenario</p>
+      <div class="manage-header-row">
+        <div>
+          <h1>QuatroLetras</h1>
+          <p class="subtitle">Letras para el escenario</p>
+        </div>
+        <button id="btn-manage-fullscreen" class="btn btn-ghost btn-icon" aria-label="Pantalla completa" title="Pantalla completa">⛶</button>
+      </div>
     </header>
 
     <main class="manage-main">
@@ -36,6 +41,16 @@
         <p class="list-hint">Todas tus canciones. Créalas y edítalas aquí; el setlist define cuáles y en qué orden se presentan.</p>
         <div id="library-list" class="song-list"></div>
         <p id="library-empty" class="empty-state">No hay canciones todavía. Crea la primera.</p>
+      </section>
+
+      <section class="data-section">
+        <h2>Datos</h2>
+        <p class="list-hint">Exporta tu biblioteca y setlist para compartirlos o importarlos en otro dispositivo.</p>
+        <div class="data-actions">
+          <button id="btn-export" type="button" class="btn btn-ghost">Exportar</button>
+          <button id="btn-import" type="button" class="btn btn-ghost">Importar</button>
+          <input type="file" id="import-file" accept=".json,application/json" hidden>
+        </div>
       </section>
 
       <section class="pedal-settings">
