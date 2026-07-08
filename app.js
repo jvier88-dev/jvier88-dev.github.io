@@ -19,6 +19,10 @@ let fontSize = parseFloat(localStorage.getItem(FONT_SIZE_KEY)) || 1;
 let pedalKeys = loadPedalKeys();
 let capturingPedal = null;
 let lastPedalTime = 0;
+let showingTitle = false;
+let wakeLock = null;
+let swipeHandled = false;
+const swipeState = { startX: 0, startY: 0, tracking: false };
 
 // ── DOM refs ──
 const screens = {
@@ -151,6 +155,28 @@ function moveSetlistById(id, delta) {
 function showScreen(name) {
   Object.values(screens).forEach(s => s.classList.remove('active'));
   screens[name].classList.add('active');
+  if (name === 'display') {
+    requestWakeLock();
+  } else {
+    releaseWakeLock();
+  }
+}
+
+// ── Wake Lock (evitar que la pantalla se apague) ──
+
+async function requestWakeLock() {
+  if (!('wakeLock' in navigator)) return;
+  try {
+    wakeLock = await navigator.wakeLock.request('screen');
+    wakeLock.addEventListener('release', () => {
+      wakeLock = null;
+    });
+  } catch { /* no disponible o rechazado */ }
+}
+
+function releaseWakeLock() {
+  wakeLock?.release();
+  wakeLock = null;
 }
 
 function isPickerOpen() {
@@ -357,9 +383,17 @@ function renderSectionLines(container, text) {
 
 function updateSectionIndicator(song) {
   const total = currentSections.length;
-  const current = currentSectionIndex + 1;
   const num = getSongNumber(song.id);
   const prefix = num > 0 ? `${num}. ` : '';
+
+  if (showingTitle) {
+    displayTitleBar.textContent = `${prefix}${song.title}`;
+    sectionIndicator.textContent = '';
+    sectionIndicator.classList.remove('visible');
+    return;
+  }
+
+  const current = currentSectionIndex + 1;
   displayTitleBar.textContent = total > 1
     ? `${prefix}${song.title} · ${current}/${total}`
     : `${prefix}${song.title}`;
@@ -368,9 +402,12 @@ function updateSectionIndicator(song) {
 }
 
 function showCurrentSection() {
-  const sections = displayContent.querySelectorAll('.lyrics-section');
-  sections.forEach((el, i) => {
-    el.classList.toggle('active', i === currentSectionIndex);
+  const titleSlide = displayContent.querySelector('.song-title-slide');
+  if (titleSlide) {
+    titleSlide.classList.toggle('active', showingTitle);
+  }
+  displayContent.querySelectorAll('.lyrics-section').forEach((el, i) => {
+    el.classList.toggle('active', !showingTitle && i === currentSectionIndex);
   });
   const song = songs.find(s => s.id === currentDisplayId);
   if (song) updateSectionIndicator(song);
@@ -385,6 +422,7 @@ function showSong(id, sectionIndex = 0) {
   currentDisplayId = id;
   currentSections = parseSections(song.lyrics);
   currentSectionIndex = Math.min(sectionIndex, currentSections.length - 1);
+  showingTitle = true;
 
   applyFontSize();
   renderLyrics(song);
@@ -395,6 +433,21 @@ function renderLyrics(song) {
   displayContent.innerHTML = '';
   const block = document.createElement('div');
   block.className = 'lyrics-block';
+
+  const titleSlide = document.createElement('div');
+  titleSlide.className = 'song-title-slide' + (showingTitle ? ' active' : '');
+  const num = getSongNumber(song.id);
+  if (num > 0) {
+    const numEl = document.createElement('div');
+    numEl.className = 'song-title-number';
+    numEl.textContent = num;
+    titleSlide.appendChild(numEl);
+  }
+  const titleEl = document.createElement('div');
+  titleEl.className = 'song-title-text';
+  titleEl.textContent = song.title;
+  titleSlide.appendChild(titleEl);
+  block.appendChild(titleSlide);
 
   currentSections.forEach((sectionText, i) => {
     const section = document.createElement('div');
@@ -438,6 +491,13 @@ function pedalNext() {
 
   if (!screens.display.classList.contains('active')) return;
 
+  if (showingTitle) {
+    showingTitle = false;
+    showCurrentSection();
+    flashControls();
+    return;
+  }
+
   if (currentSectionIndex < currentSections.length - 1) {
     currentSectionIndex++;
     showCurrentSection();
@@ -460,6 +520,11 @@ function pedalBack() {
 
   if (!screens.display.classList.contains('active')) return;
 
+  if (showingTitle) {
+    openPicker();
+    return;
+  }
+
   if (currentSectionIndex > 0) {
     currentSectionIndex--;
     showCurrentSection();
@@ -467,7 +532,9 @@ function pedalBack() {
     return;
   }
 
-  openPicker();
+  showingTitle = true;
+  showCurrentSection();
+  flashControls();
 }
 
 function goToNextSong() {
@@ -733,8 +800,43 @@ libraryList.addEventListener('click', e => {
 });
 
 displayContent.addEventListener('click', () => {
+  if (swipeHandled) {
+    swipeHandled = false;
+    return;
+  }
   if (getSetlistSongs().length > 1) openPicker();
 });
+
+// ── Deslizar para cambiar estrofa ──
+
+const SWIPE_MIN_DISTANCE = 50;
+
+screens.display.addEventListener('touchstart', e => {
+  if (isPickerOpen() || e.touches.length !== 1) return;
+  const touch = e.touches[0];
+  swipeState.startX = touch.clientX;
+  swipeState.startY = touch.clientY;
+  swipeState.tracking = true;
+}, { passive: true });
+
+screens.display.addEventListener('touchend', e => {
+  if (!swipeState.tracking || isPickerOpen()) return;
+  swipeState.tracking = false;
+
+  const touch = e.changedTouches[0];
+  const dx = touch.clientX - swipeState.startX;
+  const dy = touch.clientY - swipeState.startY;
+
+  if (Math.abs(dx) < SWIPE_MIN_DISTANCE || Math.abs(dx) < Math.abs(dy)) return;
+
+  swipeHandled = true;
+  if (dx > 0) pedalNext();
+  else pedalBack();
+}, { passive: true });
+
+screens.display.addEventListener('touchcancel', () => {
+  swipeState.tracking = false;
+}, { passive: true });
 
 let controlsTimer;
 function flashControls() {
@@ -769,6 +871,12 @@ document.addEventListener('keydown', e => {
   if (e.key === 'f' || e.key === 'F') toggleFullscreen();
   if (e.key === '+' || e.key === '=') adjustFontSize(0.15);
   if (e.key === '-') adjustFontSize(-0.15);
+});
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && screens.display.classList.contains('active')) {
+    requestWakeLock();
+  }
 });
 
 // ── Init ──
