@@ -564,19 +564,20 @@ body {
 
 .display-controls {
   position: fixed;
-  bottom: calc(1rem + var(--safe-bottom));
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
+  /*bottom: calc(1rem + var(--safe-bottom));*/
+  bottom: 8%;
+  Right: 0;
+  /*transform: translateX(-50%);*/
+  display: grid;
   align-items: center;
   gap: 0.5rem;
   background: rgba(20, 20, 20, 0.85);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 0.35rem 0.75rem;
-  opacity: 0;
+  border-radius: 10px;
+  padding: 0.2rem 0.3rem;
+  opacity: 0.2;
   transition: opacity 0.3s;
   z-index: 10;
 }
@@ -615,11 +616,11 @@ body {
 }
 
 .font-controls {
-  display: flex;
+  display: grid;
   gap: 0.25rem;
   border-left: 1px solid var(--border);
   border-right: 1px solid var(--border);
-  padding: 0 0.25rem;
+  /*padding: 0 0.25rem;*/
 }
 
 /* ── Selector rápido ── */
