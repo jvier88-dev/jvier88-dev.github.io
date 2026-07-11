@@ -28,6 +28,14 @@
           <h2>Setlist</h2>
           <button id="btn-add-to-setlist" class="btn btn-ghost">+ Añadir canciones</button>
         </div>
+        <div class="setlist-selector">
+          <select id="setlist-dropdown" class="setlist-dropdown" aria-label="Seleccionar setlist"></select>
+          <div class="setlist-selector-actions">
+            <button id="btn-new-setlist" class="btn btn-ghost btn-icon" aria-label="Nuevo setlist" title="Nuevo setlist">+</button>
+            <button id="btn-rename-setlist" class="btn btn-ghost btn-icon" aria-label="Renombrar setlist" title="Renombrar">✎</button>
+            <button id="btn-delete-setlist" class="btn btn-ghost btn-icon" aria-label="Eliminar setlist" title="Eliminar">🗑</button>
+          </div>
+        </div>
         <p class="list-hint">Orden de presentación en escenario. Usa ↑↓ o arrastra ⠿ para reordenar.</p>
         <div id="setlist-list" class="song-list"></div>
         <p id="setlist-empty" class="empty-state">El setlist está vacío. Añade canciones desde la biblioteca.</p>
@@ -96,11 +104,11 @@
     <div id="display-content" class="display-content"></div>
     <div class="display-controls">
       <button id="btn-exit-display" class="btn btn-ghost" aria-label="Salir">✕</button>
-      <div class="font-controls">
-        <button id="btn-font-down" class="btn btn-ghost" aria-label="Letra más pequeña">A−</button>
-        <button id="btn-font-up" class="btn btn-ghost" aria-label="Letra más grande">A+</button>
-      </div>
       <button id="btn-fullscreen" class="btn btn-ghost" aria-label="Pantalla completa">⛶</button>
+    </div>
+    <div id="font-controls-panel" class="font-controls-panel" aria-label="Tamaño de letra">
+      <button id="btn-font-up" class="btn btn-ghost" aria-label="Letra más grande">A+</button>
+      <button id="btn-font-down" class="btn btn-ghost" aria-label="Letra más pequeña">A−</button>
     </div>
     <div id="display-title-bar" class="display-title-bar"></div>
     <div id="section-indicator" class="section-indicator"></div>
