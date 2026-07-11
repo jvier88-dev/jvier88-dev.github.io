@@ -46,6 +46,7 @@ En Chrome/Safari: menú → **Añadir a pantalla de inicio**. La app funciona si
 ## Datos
 
 Las canciones se guardan en el navegador (localStorage). No se envían a ningún servidor.
+Tamaño de fuente por estrofa: cada estrofa de cada canción guarda su propio tamaño. Al ajustar con A+/A− durante la presentación, se guarda solo para la estrofa visible. Al volver a esa canción, cada párrafo recupera el tamaño que le configuraste.
 
 ## Biblioteca y setlist
 
@@ -62,3 +63,12 @@ El número en el setlist define:
 - El avance con el **pedal** (siguiente canción = número siguiente)
 
 Para reordenar el setlist: usa los botones **↑ ↓** o **arrastra** el ícono ⠿ en cada fila.
+
+## Múltiples setlists
+En la pantalla de gestión, encima de la lista de canciones hay un selector desplegable con:
+
+- **Selector** — elige qué setlist ver y editar
+- **+** — crea un setlist nuevo (nombre personalizable)
+- **✎** — renombra el setlist activo
+- **🗑** — elimina el setlist activo (siempre queda al menos uno)
+Cada setlist guarda su propio orden de canciones. Al cambiar de setlist en el desplegable, la lista se actualiza al instante. Los datos existentes se migran automáticamente a un setlist llamado "Setlist 1".
