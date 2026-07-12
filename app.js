@@ -5,6 +5,8 @@ const LEGACY_SETLIST_KEY = 'quatroletras-setlist';
 const SECTION_FONTS_KEY = 'quatroletras-section-fonts';
 const FONT_SIZE_KEY = 'quatroletras-font-size';
 const PEDAL_KEYS_KEY = 'quatroletras-pedal-keys';
+const DISPLAY_MODE_KEY = 'quatroletras-display-mode';
+const SCROLL_AMOUNTS_KEY = 'quatroletras-scroll-amounts';
 
 const DEFAULT_PEDAL_KEYS = {
   next: 'PageDown',
@@ -15,6 +17,16 @@ const DEFAULT_FONT_SIZE = 1;
 const FONT_SIZE_MIN = 0.6;
 const FONT_SIZE_MAX = 2.5;
 const FONT_SIZE_STEP = 0.15;
+
+const DEFAULT_SCROLL_AMOUNT = 100;
+const SCROLL_AMOUNT_MIN = 20;
+const SCROLL_AMOUNT_MAX = 600;
+const SCROLL_AMOUNT_STEP = 20;
+
+const DISPLAY_MODES = {
+  SECTIONS: 'sections',
+  CONTINUOUS: 'continuous'
+};
 
 let songs = [];
 let setlists = [];
@@ -34,6 +46,9 @@ let showingTitle = false;
 let wakeLock = null;
 let swipeHandled = false;
 const swipeState = { startX: 0, startY: 0, tracking: false };
+let displayMode = localStorage.getItem(DISPLAY_MODE_KEY) || DISPLAY_MODES.SECTIONS;
+let scrollAmounts = {};
+let currentScrollAmount = DEFAULT_SCROLL_AMOUNT;
 
 // ── DOM refs ──
 const screens = {
@@ -65,6 +80,19 @@ const btnManageFullscreen = document.getElementById('btn-manage-fullscreen');
 const importFileInput = document.getElementById('import-file');
 const setlistDropdown = document.getElementById('setlist-dropdown');
 const fontControlsPanel = document.getElementById('font-controls-panel');
+const btnToggleMode = document.getElementById('btn-toggle-mode');
+const btnEdit = document.getElementById('btn-edit');
+const editMenu = document.getElementById('edit-menu');
+const scrollMenuSection = document.getElementById('scroll-menu-section');
+const btnFontUpMenu = document.getElementById('btn-font-up-menu');
+const btnFontDownMenu = document.getElementById('btn-font-down-menu');
+const btnScrollUpMenu = document.getElementById('btn-scroll-up-menu');
+const btnScrollDownMenu = document.getElementById('btn-scroll-down-menu');
+const scrollAmountDisplayMenu = document.getElementById('scroll-amount-display-menu');
+const scrollControlsPanel = document.getElementById('scroll-controls-panel');
+const btnScrollUp = document.getElementById('btn-scroll-up');
+const btnScrollDown = document.getElementById('btn-scroll-down');
+const scrollAmountDisplay = document.getElementById('scroll-amount-display');
 
 // ── Storage ──
 
@@ -78,6 +106,27 @@ function loadPedalKeys() {
 
 function savePedalKeys() {
   localStorage.setItem(PEDAL_KEYS_KEY, JSON.stringify(pedalKeys));
+}
+
+function loadScrollAmounts() {
+  try {
+    scrollAmounts = JSON.parse(localStorage.getItem(SCROLL_AMOUNTS_KEY)) || {};
+  } catch {
+    scrollAmounts = {};
+  }
+}
+
+function saveScrollAmounts() {
+  localStorage.setItem(SCROLL_AMOUNTS_KEY, JSON.stringify(scrollAmounts));
+}
+
+function getScrollAmount(songId) {
+  return scrollAmounts[songId] ?? DEFAULT_SCROLL_AMOUNT;
+}
+
+function setScrollAmount(songId, amount) {
+  scrollAmounts[songId] = amount;
+  saveScrollAmounts();
 }
 
 function loadSongs() {
@@ -541,9 +590,27 @@ function updateSectionIndicator(song) {
   displayTitleBar.textContent = '';
   displayTitleBar.classList.remove('visible');
 
-  const total = currentSections.length;
-  sectionIndicator.textContent = total > 1 ? `${currentSectionIndex + 1} / ${total}` : '';
-  sectionIndicator.classList.toggle('visible', total > 1);
+  if (displayMode === DISPLAY_MODES.SECTIONS) {
+    const total = currentSections.length;
+    sectionIndicator.textContent = total > 1 ? `${currentSectionIndex + 1} / ${total}` : '';
+    sectionIndicator.classList.toggle('visible', total > 1);
+  } else {
+    sectionIndicator.textContent = '';
+    sectionIndicator.classList.remove('visible');
+  }
+}
+
+function updateScrollControls() {
+  if (displayMode === DISPLAY_MODES.CONTINUOUS && !showingTitle) {
+    currentScrollAmount = getScrollAmount(currentDisplayId);
+    scrollAmountDisplay.textContent = `${currentScrollAmount}px`;
+    scrollAmountDisplayMenu.textContent = `${currentScrollAmount}px`;
+    scrollMenuSection.classList.remove('hidden');
+    scrollControlsPanel.classList.add('hidden');
+  } else {
+    scrollMenuSection.classList.add('hidden');
+    scrollControlsPanel.classList.add('hidden');
+  }
 }
 
 function showCurrentSection() {
@@ -551,9 +618,18 @@ function showCurrentSection() {
   if (titleSlide) {
     titleSlide.classList.toggle('active', showingTitle);
   }
-  displayContent.querySelectorAll('.lyrics-section').forEach((el, i) => {
-    el.classList.toggle('active', !showingTitle && i === currentSectionIndex);
-  });
+  
+  if (displayMode === DISPLAY_MODES.SECTIONS) {
+    displayContent.querySelectorAll('.lyrics-section').forEach((el, i) => {
+      el.classList.toggle('active', !showingTitle && i === currentSectionIndex);
+    });
+  } else {
+    // Modo continuo: mostrar siempre la sección continua
+    displayContent.querySelectorAll('.lyrics-section').forEach(el => {
+      el.classList.toggle('active', !showingTitle);
+    });
+  }
+  
   applyCurrentSectionFontSize();
   const song = songs.find(s => s.id === currentDisplayId);
   if (song) updateSectionIndicator(song);
@@ -576,6 +652,8 @@ function showSong(id, sectionIndex = 0) {
 
 function renderLyrics(song) {
   displayContent.innerHTML = '';
+  displayContent.classList.toggle('continuous-mode', displayMode === DISPLAY_MODES.CONTINUOUS);
+  
   const block = document.createElement('div');
   block.className = 'lyrics-block';
 
@@ -594,17 +672,33 @@ function renderLyrics(song) {
   titleSlide.appendChild(titleEl);
   block.appendChild(titleSlide);
 
-  currentSections.forEach((sectionText, i) => {
-    const section = document.createElement('div');
-    section.className = 'lyrics-section' + (!showingTitle && i === currentSectionIndex ? ' active' : '');
-    const size = getSectionFontSize(song.id, i);
-    section.style.setProperty('--section-font-size', fontSizeToCss(size));
-    renderSectionLines(section, sectionText);
-    block.appendChild(section);
-  });
+  if (displayMode === DISPLAY_MODES.SECTIONS) {
+    currentSections.forEach((sectionText, i) => {
+      const section = document.createElement('div');
+      section.className = 'lyrics-section' + (!showingTitle && i === currentSectionIndex ? ' active' : '');
+      const size = getSectionFontSize(song.id, i);
+      section.style.setProperty('--section-font-size', fontSizeToCss(size));
+      renderSectionLines(section, sectionText);
+      block.appendChild(section);
+    });
+  } else {
+    // Modo continuo
+    const continuousSection = document.createElement('div');
+    continuousSection.className = 'lyrics-section continuous';
+    const size = getSectionFontSize(song.id, 0);
+    continuousSection.style.setProperty('--section-font-size', fontSizeToCss(size));
+    currentSections.forEach(sectionText => {
+      renderSectionLines(continuousSection, sectionText);
+      const gap = document.createElement('div');
+      gap.className = 'lyrics-gap';
+      continuousSection.appendChild(gap);
+    });
+    block.appendChild(continuousSection);
+  }
 
   displayContent.appendChild(block);
   updateSectionIndicator(song);
+  updateScrollControls();
 }
 
 function applyCurrentSectionFontSize() {
@@ -623,6 +717,49 @@ function adjustFontSize(delta) {
   setSectionFontSize(currentDisplayId, currentSectionIndex, newSize);
   applyCurrentSectionFontSize();
   flashFontControls();
+}
+
+function toggleDisplayMode() {
+  displayMode = displayMode === DISPLAY_MODES.SECTIONS ? DISPLAY_MODES.CONTINUOUS : DISPLAY_MODES.SECTIONS;
+  localStorage.setItem(DISPLAY_MODE_KEY, displayMode);
+  updateModeButton();
+  
+  if (currentDisplayId) {
+    const song = songs.find(s => s.id === currentDisplayId);
+    if (song) {
+      renderLyrics(song);
+      showCurrentSection();
+    }
+  }
+}
+
+function updateModeButton() {
+  if (btnToggleMode) {
+    btnToggleMode.textContent = displayMode === DISPLAY_MODES.SECTIONS ? '📄' : '📜';
+    btnToggleMode.title = displayMode === DISPLAY_MODES.SECTIONS ? 'Modo por estrofas' : 'Modo continuo';
+  }
+}
+
+function adjustScrollAmount(delta) {
+  if (!currentDisplayId) return;
+  const current = getScrollAmount(currentDisplayId);
+  const newAmount = Math.min(SCROLL_AMOUNT_MAX, Math.max(SCROLL_AMOUNT_MIN, current + delta));
+  setScrollAmount(currentDisplayId, newAmount);
+  currentScrollAmount = newAmount;
+  scrollAmountDisplay.textContent = `${newAmount}px`;
+  scrollAmountDisplayMenu.textContent = `${newAmount}px`;
+  flashControls();
+}
+
+function toggleEditMenu() {
+  editMenu.classList.toggle('hidden');
+  if (!editMenu.classList.contains('hidden')) {
+    editMenu.classList.add('visible');
+    clearTimeout(controlsTimer);
+    controlsTimer = setTimeout(() => {
+      editMenu.classList.remove('visible');
+    }, 3000);
+  }
 }
 
 function toggleFullscreen() {
@@ -778,14 +915,18 @@ function pedalNext() {
   if (showingTitle) {
     showingTitle = false;
     showCurrentSection();
-    flashControls();
+    return;
+  }
+
+  if (displayMode === DISPLAY_MODES.CONTINUOUS) {
+    // Modo continuo: hacer scroll en displayContent
+    displayContent.scrollBy({ top: currentScrollAmount, behavior: 'smooth' });
     return;
   }
 
   if (currentSectionIndex < currentSections.length - 1) {
     currentSectionIndex++;
     showCurrentSection();
-    flashControls();
     return;
   }
 
@@ -809,16 +950,20 @@ function pedalBack() {
     return;
   }
 
+  if (displayMode === DISPLAY_MODES.CONTINUOUS) {
+    // Modo continuo: hacer scroll hacia arriba en displayContent
+    displayContent.scrollBy({ top: -currentScrollAmount, behavior: 'smooth' });
+    return;
+  }
+
   if (currentSectionIndex > 0) {
     currentSectionIndex--;
     showCurrentSection();
-    flashControls();
     return;
   }
 
   showingTitle = true;
   showCurrentSection();
-  flashControls();
 }
 
 function goToNextSong() {
@@ -827,7 +972,6 @@ function goToNextSong() {
   const idx = getSetlistIndex(currentDisplayId);
   const nextIdx = idx >= 0 && idx < setlist.length - 1 ? idx + 1 : 0;
   showSong(setlist[nextIdx].id, 0);
-  flashControls();
 }
 
 function keyLabel(key) {
@@ -865,8 +1009,8 @@ function stopPedalCapture() {
 
 function isPedalKey(key, action) {
   if (key === pedalKeys[action]) return true;
-  if (action === 'next' && (key === 'ArrowRight' || key === 'ArrowDown')) return true;
-  if (action === 'back' && (key === 'ArrowLeft' || key === 'ArrowUp')) return true;
+  if (action === 'next' && (key === 'ArrowRight' || key === 'ArrowDown' || key === 'PageDown')) return true;
+  if (action === 'back' && (key === 'ArrowLeft' || key === 'ArrowUp' || key === 'PageUp')) return true;
   return false;
 }
 
@@ -988,6 +1132,54 @@ fontControlsPanel?.addEventListener('touchstart', e => {
   flashFontControls();
 }, { passive: true });
 document.getElementById('btn-fullscreen').addEventListener('click', toggleFullscreen);
+btnToggleMode?.addEventListener('click', e => {
+  e.stopPropagation();
+  toggleDisplayMode();
+});
+
+btnEdit?.addEventListener('click', e => {
+  e.stopPropagation();
+  toggleEditMenu();
+});
+
+btnFontUpMenu?.addEventListener('click', e => {
+  e.stopPropagation();
+  adjustFontSize(FONT_SIZE_STEP);
+});
+
+btnFontDownMenu?.addEventListener('click', e => {
+  e.stopPropagation();
+  adjustFontSize(-FONT_SIZE_STEP);
+});
+
+btnScrollUpMenu?.addEventListener('click', e => {
+  e.stopPropagation();
+  adjustScrollAmount(SCROLL_AMOUNT_STEP);
+});
+
+btnScrollDownMenu?.addEventListener('click', e => {
+  e.stopPropagation();
+  adjustScrollAmount(-SCROLL_AMOUNT_STEP);
+});
+
+editMenu?.addEventListener('click', e => {
+  e.stopPropagation();
+  editMenu.classList.add('visible');
+  clearTimeout(controlsTimer);
+  controlsTimer = setTimeout(() => {
+    editMenu.classList.remove('visible');
+  }, 3000);
+});
+
+const displayControls = document.querySelector('.display-controls');
+displayControls?.addEventListener('click', e => {
+  e.stopPropagation();
+  displayControls.classList.add('visible');
+  clearTimeout(controlsTimer);
+  controlsTimer = setTimeout(() => {
+    displayControls.classList.remove('visible');
+  }, 3000);
+});
 document.getElementById('btn-close-picker').addEventListener('click', closePicker);
 btnManageFullscreen?.addEventListener('click', toggleFullscreen);
 document.getElementById('btn-export')?.addEventListener('click', exportLibrary);
@@ -1170,15 +1362,21 @@ let fontControlsTimer;
 function flashControls() {
   const controls = document.querySelector('.display-controls');
   controls.classList.add('visible');
+  
+  if (displayMode === DISPLAY_MODES.CONTINUOUS && !showingTitle) {
+    scrollControlsPanel.classList.add('visible');
+  }
+  
   clearTimeout(controlsTimer);
   controlsTimer = setTimeout(() => {
     controls.classList.remove('visible');
+    scrollControlsPanel.classList.remove('visible');
     if (!showingTitle && currentSections.length > 1) {
       sectionIndicator.classList.add('visible');
     } else {
       sectionIndicator.classList.remove('visible');
     }
-  }, 2500);
+  }, 3000);
 
   if (showingTitle) {
     sectionIndicator.classList.remove('visible');
@@ -1233,7 +1431,9 @@ document.addEventListener('visibilitychange', () => {
 loadSongs();
 loadSetlists();
 loadSectionFonts();
+loadScrollAmounts();
 renderSetlistSelector();
 renderAll();
 updatePedalKeyButtons();
+updateModeButton();
 updateFullscreenButtons();

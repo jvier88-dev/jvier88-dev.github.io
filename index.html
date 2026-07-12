@@ -103,12 +103,30 @@
   <div id="display-screen" class="screen">
     <div id="display-content" class="display-content"></div>
     <div class="display-controls">
+      <button id="btn-toggle-mode" class="btn btn-ghost" aria-label="Cambiar modo de visualización" title="Modo de visualización">📄</button>
+      <button id="btn-edit" class="btn btn-ghost" aria-label="Editar">✎</button>
       <button id="btn-exit-display" class="btn btn-ghost" aria-label="Salir">✕</button>
       <button id="btn-fullscreen" class="btn btn-ghost" aria-label="Pantalla completa">⛶</button>
     </div>
-    <div id="font-controls-panel" class="font-controls-panel" aria-label="Tamaño de letra">
+    <div id="edit-menu" class="edit-menu hidden">
+      <div class="menu-section">
+        <button id="btn-font-up-menu" class="btn btn-ghost menu-item" aria-label="Letra más grande">A+</button>
+        <button id="btn-font-down-menu" class="btn btn-ghost menu-item" aria-label="Letra más pequeña">A−</button>
+      </div>
+      <div class="menu-section" id="scroll-menu-section">
+        <button id="btn-scroll-up-menu" class="btn btn-ghost menu-item" aria-label="Aumentar avance">▲</button>
+        <span id="scroll-amount-display-menu" class="scroll-amount-display-menu">100px</span>
+        <button id="btn-scroll-down-menu" class="btn btn-ghost menu-item" aria-label="Reducir avance">▼</button>
+      </div>
+    </div>
+    <div id="font-controls-panel" class="font-controls-panel hidden" aria-label="Tamaño de letra">
       <button id="btn-font-up" class="btn btn-ghost" aria-label="Letra más grande">A+</button>
       <button id="btn-font-down" class="btn btn-ghost" aria-label="Letra más pequeña">A−</button>
+    </div>
+    <div id="scroll-controls-panel" class="scroll-controls-panel hidden" aria-label="Control de avance">
+      <button id="btn-scroll-up" class="btn btn-ghost" aria-label="Aumentar avance">▲</button>
+      <span id="scroll-amount-display" class="scroll-amount-display">100px</span>
+      <button id="btn-scroll-down" class="btn btn-ghost" aria-label="Reducir avance">▼</button>
     </div>
     <div id="display-title-bar" class="display-title-bar"></div>
     <div id="section-indicator" class="section-indicator"></div>
