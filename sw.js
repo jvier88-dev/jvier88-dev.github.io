@@ -4,7 +4,11 @@ const STATIC_ASSETS = [
   './index.html',
   './app.js',
   './styles.css',
-  './manifest.json'
+  './manifest.json',
+  './icon-192.svg',
+  './icon-512.svg',
+  './icon-192.png',
+  './icon-512.png'
 ];
 
 // Instalación del Service Worker

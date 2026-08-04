@@ -93,23 +93,69 @@
         <span>Título</span>
         <input type="text" id="song-title" placeholder="Nombre de la canción" autocomplete="off">
       </label>
-      <label class="field">
-        <span>Letra</span>
-        <textarea id="song-lyrics" placeholder="Pega o escribe la letra aquí&#10;&#10;Deja una línea en blanco entre estrofas&#10;(cada estrofa es un paso del pedal)" rows="20"></textarea>
-      </label>
+      <div class="field">
+        <span>Archivo de audio (opcional)</span>
+        <div class="audio-input-wrapper">
+          <input type="file" id="song-audio-input" accept="audio/*" class="audio-file-input">
+          <label for="song-audio-input" id="audio-upload-label" class="btn btn-ghost btn-audio-upload">
+            <span class="audio-upload-icon">🎵</span>
+            <span id="audio-upload-text">Seleccionar archivo de audio (MP3, WAV, etc.)</span>
+          </label>
+          <div id="audio-file-info" class="audio-file-info hidden">
+            <div class="audio-file-details">
+              <span class="audio-file-icon">🎧</span>
+              <span id="audio-file-name" class="audio-file-name">audio.mp3</span>
+            </div>
+            <audio id="edit-audio-preview" controls class="edit-audio-preview"></audio>
+            <button type="button" id="btn-remove-audio" class="btn btn-ghost btn-remove-audio" title="Quitar audio">🗑 Quitar audio</button>
+          </div>
+        </div>
+      </div>
+      <div class="field">
+        <div class="field-label-row">
+          <span>Letra</span>
+          <div class="format-toolbar">
+            <button type="button" id="btn-format-bold" class="btn btn-ghost btn-format" title="Negrita"><b>B</b></button>
+            <button type="button" id="btn-format-italic" class="btn btn-ghost btn-format" title="Cursiva"><i>I</i></button>
+            <button type="button" id="btn-format-underline" class="btn btn-ghost btn-format" title="Subrayado"><u>U</u></button>
+            <div class="color-picker-wrapper">
+              <button type="button" id="btn-format-color" class="btn btn-ghost btn-format" title="Color de texto">🎨</button>
+              <div id="color-popover" class="color-popover hidden">
+                <button type="button" class="color-swatch" data-color="#facc15" style="background: #facc15;" title="Amarillo"></button>
+                <button type="button" class="color-swatch" data-color="#ef4444" style="background: #ef4444;" title="Rojo"></button>
+                <button type="button" class="color-swatch" data-color="#4ade80" style="background: #4ade80;" title="Verde"></button>
+                <button type="button" class="color-swatch" data-color="#38bdf8" style="background: #38bdf8;" title="Cian"></button>
+                <button type="button" class="color-swatch" data-color="#f472b6" style="background: #f472b6;" title="Rosa"></button>
+                <button type="button" class="color-swatch" data-color="#ffffff" style="background: #ffffff;" title="Blanco"></button>
+                <input type="color" id="custom-color-input" class="color-picker-custom" value="#facc15" title="Color personalizado">
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="song-lyrics" class="song-lyrics-editor" contenteditable="true" data-placeholder="Pega o escribe la letra aquí&#10;&#10;Deja una línea en blanco entre estrofas&#10;(cada estrofa es un paso del pedal)"></div>
+      </div>
       <button id="btn-delete" class="btn btn-danger hidden">Eliminar canción</button>
     </main>
   </div>
 
   <!-- Pantalla de presentación -->
   <div id="display-screen" class="screen">
+    <header id="display-top-bar" class="display-top-bar">
+      <div id="display-audio-controls" class="display-audio-controls hidden">
+        <button id="btn-audio-play" class="btn btn-ghost btn-audio-play" aria-label="Reproducir/Pausar" title="Reproducir">▶</button>
+        <div class="audio-progress-container">
+          <input type="range" id="audio-progress-bar" class="audio-progress-bar" min="0" max="100" value="0" step="0.1">
+        </div>
+        <span id="audio-time-display" class="audio-time-display">00:00 / 00:00</span>
+      </div>
+      <div class="display-actions">
+        <button id="btn-toggle-mode" class="btn btn-ghost" aria-label="Cambiar modo de visualización" title="Modo de visualización">📄</button>
+        <button id="btn-edit" class="btn btn-ghost" aria-label="Editar">✎</button>
+        <button id="btn-fullscreen" class="btn btn-ghost" aria-label="Pantalla completa">⛶</button>
+        <button id="btn-exit-display" class="btn btn-ghost" aria-label="Salir">✕</button>
+      </div>
+    </header>
     <div id="display-content" class="display-content"></div>
-    <div class="display-controls">
-      <button id="btn-toggle-mode" class="btn btn-ghost" aria-label="Cambiar modo de visualización" title="Modo de visualización">📄</button>
-      <button id="btn-edit" class="btn btn-ghost" aria-label="Editar">✎</button>
-      <button id="btn-exit-display" class="btn btn-ghost" aria-label="Salir">✕</button>
-      <button id="btn-fullscreen" class="btn btn-ghost" aria-label="Pantalla completa">⛶</button>
-    </div>
     <div id="edit-menu" class="edit-menu hidden">
       <div class="menu-section">
         <button id="btn-font-up-menu" class="btn btn-ghost menu-item" aria-label="Letra más grande">A+</button>
@@ -154,6 +200,25 @@
         <button id="btn-close-picker" class="btn btn-ghost" aria-label="Cerrar">✕</button>
       </div>
       <div id="picker-list" class="picker-list"></div>
+    </div>
+  </div>
+
+  <!-- Advertencia de Audio Incompleto -->
+  <div id="audio-warning-overlay" class="overlay hidden">
+    <div class="warning-panel">
+      <div class="warning-icon">🎵</div>
+      <h2>La canción aún no ha terminado</h2>
+      <p>El audio todavía se está reproduciendo. ¿Deseas pasar a la siguiente canción o volver a la última estrofa?</p>
+      <div class="warning-actions">
+        <button type="button" id="btn-warning-back" class="btn btn-ghost warning-btn">
+          <span class="pedal-hint-badge">Pedal ←</span>
+          Atrás
+        </button>
+        <button type="button" id="btn-warning-continue" class="btn btn-primary warning-btn">
+          Continuar
+          <span class="pedal-hint-badge">Pedal →</span>
+        </button>
+      </div>
     </div>
   </div>
 

@@ -375,13 +375,92 @@ body {
   letter-spacing: 0.05em;
 }
 
+.field-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 1rem;
+}
+
+.format-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.btn-format {
+  padding: 0.35rem 0.65rem;
+  min-width: 36px;
+  min-height: 32px;
+  font-size: 0.95rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.btn-format:hover,
+.btn-format:active {
+  background: var(--surface-hover);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.color-picker-wrapper {
+  position: relative;
+  display: inline-flex;
+}
+
+.color-popover {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  left: 0;
+  background: #1a1a1a;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  z-index: 50;
+}
+
+.color-swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform 0.15s, border-color 0.15s;
+  flex-shrink: 0;
+}
+
+.color-swatch:hover,
+.color-swatch:active {
+  transform: scale(1.2);
+  border-color: #fff;
+}
+
+.color-picker-custom {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
 .field input,
-.field textarea {
+.field textarea,
+.song-lyrics-editor {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 10px;
   color: var(--text);
-  font-size: 1rem;
+  font-size: 1.05rem;
   font-family: inherit;
   padding: 0.85rem 1rem;
   width: 100%;
@@ -390,15 +469,107 @@ body {
   user-select: text;
 }
 
+.song-lyrics-editor {
+  min-height: 300px;
+  max-height: 55vh;
+  overflow-y: auto;
+  outline: none;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.song-lyrics-editor[data-placeholder]:empty:before {
+  content: attr(data-placeholder);
+  color: var(--text-muted);
+  pointer-events: none;
+  display: block;
+}
+
 .field input:focus,
-.field textarea:focus {
+.field textarea:focus,
+.song-lyrics-editor:focus {
   outline: none;
   border-color: var(--accent);
 }
 
-.field textarea {
-  flex: 1;
-  min-height: 300px;
+/* ── Campo de Audio en Edición ── */
+
+.audio-input-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.audio-file-input {
+  display: none;
+}
+
+.btn-audio-upload {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: 1.5px dashed var(--border);
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.btn-audio-upload:hover,
+.btn-audio-upload:active {
+  border-color: var(--accent);
+  background: var(--surface-hover);
+}
+
+.audio-upload-icon {
+  font-size: 1.2rem;
+}
+
+.audio-file-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.85rem;
+}
+
+.audio-file-details {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.audio-file-icon {
+  font-size: 1.1rem;
+}
+
+.audio-file-name {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--accent);
+  word-break: break-all;
+}
+
+.edit-audio-preview {
+  width: 100%;
+  height: 38px;
+  border-radius: 8px;
+}
+
+.btn-remove-audio {
+  align-self: flex-end;
+  color: var(--danger);
+  font-size: 0.85rem;
+  padding: 0.35rem 0.6rem;
+}
+
+.btn-remove-audio:hover {
+  background: rgba(239, 68, 68, 0.15);
 }
 
 /* ── Presentación ── */
@@ -408,13 +579,128 @@ body {
   position: relative;
 }
 
+.display-top-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: calc(0.6rem + var(--safe-top)) 1.25rem 0.6rem;
+  background: rgba(18, 18, 18, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+  z-index: 20;
+}
+
+.display-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-left: auto;
+}
+
+.display-actions .btn {
+  padding: 0.5rem;
+  min-width: 40px;
+  min-height: 40px;
+  font-size: 1.1rem;
+  border-radius: 8px;
+}
+
+.display-audio-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+  max-width: 600px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 0.35rem 0.75rem;
+}
+
+.display-audio-controls.hidden {
+  display: none !important;
+}
+
+.btn-audio-play {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #000;
+  font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.1s, background 0.15s;
+}
+
+.btn-audio-play:active {
+  background: var(--accent-hover);
+  transform: scale(0.95);
+}
+
+.audio-progress-container {
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+
+.audio-progress-bar {
+  width: 100%;
+  height: 6px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+  outline: none;
+  cursor: pointer;
+}
+
+.audio-progress-bar::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  box-shadow: 0 0 8px rgba(74, 222, 128, 0.5);
+}
+
+.audio-progress-bar::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 0 8px rgba(74, 222, 128, 0.5);
+}
+
+.audio-time-display {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .display-content {
   flex: 1;
-  overflow: hidden;
-  padding: calc(2rem + var(--safe-top)) 2rem calc(3rem + var(--safe-bottom));
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: auto;
+  padding: 1.5rem 2rem calc(2rem + var(--safe-bottom));
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
   align-items: center;
   text-align: center;
 }
@@ -425,8 +711,9 @@ body {
 }
 
 .lyrics-block {
-  max-width: 90vw;
-  width: 100%;
+  max-width: 100%;
+  width: max-content;
+  min-width: 100%;
 }
 
 .lyrics-line {
@@ -436,10 +723,12 @@ body {
   letter-spacing: -0.01em;
   color: #fff;
   user-select: none;
+  white-space: nowrap;
 }
 
 .lyrics-gap {
-  height: calc(var(--section-font-size, var(--font-size-display)) * 0.5);
+  height: calc(var(--section-font-size, var(--font-size-display)) * 0.85);
+  flex-shrink: 0;
 }
 
 .lyrics-section {
@@ -905,6 +1194,83 @@ body {
 .picker-item.active {
   background: var(--surface-hover);
   color: var(--accent);
+}
+
+/* ── Panel de Advertencia Audio ── */
+
+.warning-panel {
+  background: #18181b;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  border-radius: 20px;
+  width: 90%;
+  max-width: 480px;
+  padding: 1.75rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 1rem;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 0 0 30px rgba(239, 68, 68, 0.15);
+  animation: popIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  margin: auto;
+}
+
+@keyframes popIn {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.warning-icon {
+  font-size: 2rem;
+  background: rgba(239, 68, 68, 0.15);
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--danger);
+}
+
+.warning-panel h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.warning-panel p {
+  font-size: 0.95rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.warning-actions {
+  display: flex;
+  gap: 0.75rem;
+  width: 100%;
+  margin-top: 0.5rem;
+}
+
+.warning-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0.85rem 0.5rem;
+  gap: 0.35rem;
+  min-height: 58px;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.pedal-hint-badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  opacity: 0.75;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 /* ── Responsive tablet ── */
