@@ -86,12 +86,30 @@ body {
   gap: 1rem;
 }
 
+.section-title-group {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
 .section-header h2 {
   font-size: 1.1rem;
   font-weight: 600;
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+}
+
+.setlist-total-duration {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--accent);
+  background: rgba(74, 222, 128, 0.12);
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .list-hint {
@@ -246,13 +264,224 @@ body {
   text-overflow: ellipsis;
 }
 
-.song-item-preview {
-  font-size: 0.85rem;
+.song-item-artist {
+  font-size: 0.88rem;
   color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   margin-top: 0.2rem;
+}
+
+.song-duration-badge {
+  flex-shrink: 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 0.25rem 0.55rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.duration-inputs {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.duration-field {
+  display: flex;
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.5rem 0.75rem;
+  gap: 0.35rem;
+  flex: 1;
+  max-width: 120px;
+}
+
+.duration-field:focus-within {
+  border-color: var(--accent);
+}
+
+.duration-input {
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  font-size: 1.1rem !important;
+  font-weight: 600;
+  color: var(--text);
+  width: 100%;
+  text-align: right;
+  -moz-appearance: textfield;
+}
+
+.duration-input::-webkit-outer-spin-button,
+.duration-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.duration-unit {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.duration-colon {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+/* ── Control de Energía de Canción (1 a 5) ── */
+
+.energy-level-display {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.energy-selector {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.65rem 1rem;
+}
+
+.energy-bar {
+  flex: 1;
+  height: 36px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, transform 0.15s, box-shadow 0.2s;
+}
+
+.energy-bar:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+/* Colores uniformes según el nivel seleccionado */
+
+/* Nivel 1: Barra 1 cian */
+.energy-selector[data-energy="1"] .energy-bar[data-level="1"] {
+  background: #38bdf8;
+  border-color: #38bdf8;
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.4);
+}
+
+/* Nivel 2: Barras 1 y 2 verdes */
+.energy-selector[data-energy="2"] .energy-bar[data-level="1"],
+.energy-selector[data-energy="2"] .energy-bar[data-level="2"] {
+  background: #4ade80;
+  border-color: #4ade80;
+  box-shadow: 0 0 10px rgba(74, 222, 128, 0.4);
+}
+
+/* Nivel 3: Barras 1, 2 y 3 amarillas */
+.energy-selector[data-energy="3"] .energy-bar[data-level="1"],
+.energy-selector[data-energy="3"] .energy-bar[data-level="2"],
+.energy-selector[data-energy="3"] .energy-bar[data-level="3"] {
+  background: #facc15;
+  border-color: #facc15;
+  box-shadow: 0 0 10px rgba(250, 204, 21, 0.4);
+}
+
+/* Nivel 4: Barras 1, 2, 3 y 4 naranjas */
+.energy-selector[data-energy="4"] .energy-bar[data-level="1"],
+.energy-selector[data-energy="4"] .energy-bar[data-level="2"],
+.energy-selector[data-energy="4"] .energy-bar[data-level="3"],
+.energy-selector[data-energy="4"] .energy-bar[data-level="4"] {
+  background: #fb923c;
+  border-color: #fb923c;
+  box-shadow: 0 0 10px rgba(251, 146, 60, 0.4);
+}
+
+/* Nivel 5: Barras 1, 2, 3, 4 y 5 rojas */
+.energy-selector[data-energy="5"] .energy-bar[data-level="1"],
+.energy-selector[data-energy="5"] .energy-bar[data-level="2"],
+.energy-selector[data-energy="5"] .energy-bar[data-level="3"],
+.energy-selector[data-energy="5"] .energy-bar[data-level="4"],
+.energy-selector[data-energy="5"] .energy-bar[data-level="5"] {
+  background: #ef4444;
+  border-color: #ef4444;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.4);
+}
+
+/* ── Insignia de Energía en Tarjetas ── */
+
+.song-energy-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 0.25rem 0.55rem;
+  flex-shrink: 0;
+}
+
+.energy-mini-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 2.5px;
+  height: 14px;
+}
+
+.mini-bar {
+  width: 4px;
+  height: 14px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
+  transition: background 0.2s;
+}
+
+/* Mini barras activas por el color del nivel seleccionado */
+.energy-mini-bars[data-energy="1"] .level-1 {
+  background: #38bdf8;
+}
+
+.energy-mini-bars[data-energy="2"] .level-1,
+.energy-mini-bars[data-energy="2"] .level-2 {
+  background: #4ade80;
+}
+
+.energy-mini-bars[data-energy="3"] .level-1,
+.energy-mini-bars[data-energy="3"] .level-2,
+.energy-mini-bars[data-energy="3"] .level-3 {
+  background: #facc15;
+}
+
+.energy-mini-bars[data-energy="4"] .level-1,
+.energy-mini-bars[data-energy="4"] .level-2,
+.energy-mini-bars[data-energy="4"] .level-3,
+.energy-mini-bars[data-energy="4"] .level-4 {
+  background: #fb923c;
+}
+
+.energy-mini-bars[data-energy="5"] .level-1,
+.energy-mini-bars[data-energy="5"] .level-2,
+.energy-mini-bars[data-energy="5"] .level-3,
+.energy-mini-bars[data-energy="5"] .level-4,
+.energy-mini-bars[data-energy="5"] .level-5 {
+  background: #ef4444;
+}
+
+.energy-num {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
 }
 
 .song-item-actions {

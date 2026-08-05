@@ -62,6 +62,12 @@ const setlistEmpty = document.getElementById('setlist-empty');
 const libraryList = document.getElementById('library-list');
 const libraryEmpty = document.getElementById('library-empty');
 const songTitle = document.getElementById('song-title');
+const songArtist = document.getElementById('song-artist');
+const songDurationMin = document.getElementById('song-duration-min');
+const songDurationSec = document.getElementById('song-duration-sec');
+const energySelector = document.getElementById('energy-selector');
+const energyLevelDisplay = document.getElementById('energy-level-display');
+const setlistTotalDuration = document.getElementById('setlist-total-duration');
 const songLyrics = document.getElementById('song-lyrics');
 const btnFormatBold = document.getElementById('btn-format-bold');
 const btnFormatItalic = document.getElementById('btn-format-italic');
@@ -475,6 +481,83 @@ function renderAll() {
 
 // ── Setlist UI ──
 
+function formatSongDuration(min, sec) {
+  const m = parseInt(min, 10) || 0;
+  const s = parseInt(sec, 10) || 0;
+  const total = m * 60 + s;
+  if (total <= 0) return '';
+  const displayMin = Math.floor(total / 60);
+  const displaySec = total % 60;
+  return `${displayMin}:${String(displaySec).padStart(2, '0')}`;
+}
+
+function getSongTotalSeconds(song) {
+  const m = parseInt(song.durationMin, 10) || 0;
+  const s = parseInt(song.durationSec, 10) || 0;
+  return m * 60 + s;
+}
+
+function formatTotalSetlistTime(totalSec) {
+  if (totalSec <= 0) return '⏱ 0 min';
+  const hours = Math.floor(totalSec / 3600);
+  const remSec = totalSec % 3600;
+  const mins = Math.floor(remSec / 60);
+  const secs = remSec % 60;
+
+  if (hours > 0) {
+    return `⏱ ${hours} h ${mins} min`;
+  }
+  if (secs > 0) {
+    return `⏱ ${mins} min ${secs} s`;
+  }
+  return `⏱ ${mins} min`;
+}
+
+function updateSetlistTotalDuration() {
+  if (!setlistTotalDuration) return;
+  const setlistSongs = getSetlistSongs();
+  const totalSec = setlistSongs.reduce((sum, s) => sum + getSongTotalSeconds(s), 0);
+  setlistTotalDuration.textContent = formatTotalSetlistTime(totalSec);
+}
+
+let currentEditEnergy = 0;
+
+const ENERGY_LABELS = {
+  0: 'Sin definir',
+  1: 'Grado 1 (Muy baja)',
+  2: 'Grado 2 (Baja)',
+  3: 'Grado 3 (Media)',
+  4: 'Grado 4 (Alta)',
+  5: 'Grado 5 (Muy alta)',
+};
+
+function setEditEnergy(level) {
+  currentEditEnergy = Math.max(0, Math.min(5, parseInt(level, 10) || 0));
+  if (energySelector) {
+    energySelector.dataset.energy = String(currentEditEnergy);
+  }
+  if (energyLevelDisplay) {
+    energyLevelDisplay.textContent = ENERGY_LABELS[currentEditEnergy] || 'Sin definir';
+  }
+}
+
+function renderEnergyBadge(energy) {
+  const level = parseInt(energy, 10) || 0;
+  if (level <= 0) return '';
+  return `
+    <div class="song-energy-badge" title="Energía: Grado ${level}/5">
+      <div class="energy-mini-bars" data-energy="${level}">
+        <span class="mini-bar level-1"></span>
+        <span class="mini-bar level-2"></span>
+        <span class="mini-bar level-3"></span>
+        <span class="mini-bar level-4"></span>
+        <span class="mini-bar level-5"></span>
+      </div>
+      <span class="energy-num">${level}/5</span>
+    </div>
+  `;
+}
+
 function renderSetlist() {
   const items = getSetlistSongs();
   setlistList.innerHTML = '';
@@ -484,6 +567,9 @@ function renderSetlist() {
     const num = index + 1;
     const isFirst = index === 0;
     const isLast = index === items.length - 1;
+    const durationText = formatSongDuration(song.durationMin, song.durationSec);
+    const artistText = song.artist?.trim() || 'Artista no especificado';
+
     const item = document.createElement('div');
     item.className = 'song-item';
     item.dataset.id = song.id;
@@ -496,8 +582,10 @@ function renderSetlist() {
           ${escapeHtml(song.title)}
           ${song.hasAudio ? '<span class="in-setlist-badge" style="background: rgba(59, 130, 246, 0.15); color: #60a5fa;">🎵 Audio</span>' : ''}
         </div>
-        <div class="song-item-preview">${escapeHtml(preview(song.lyrics))}</div>
+        <div class="song-item-artist">${escapeHtml(artistText)}</div>
       </div>
+      ${renderEnergyBadge(song.energy)}
+      ${durationText ? `<span class="song-duration-badge">⏱ ${durationText}</span>` : ''}
       <div class="song-reorder">
         <button type="button" class="btn btn-ghost" data-action="up" data-id="${song.id}" ${isFirst ? 'disabled' : ''} aria-label="Subir en el setlist">↑</button>
         <button type="button" class="btn btn-ghost" data-action="down" data-id="${song.id}" ${isLast ? 'disabled' : ''} aria-label="Bajar en el setlist">↓</button>
@@ -509,6 +597,8 @@ function renderSetlist() {
     `;
     setlistList.appendChild(item);
   });
+
+  updateSetlistTotalDuration();
 }
 
 function renderLibrary() {
@@ -517,6 +607,9 @@ function renderLibrary() {
 
   songs.forEach(song => {
     const inSetlist = isInSetlist(song.id);
+    const durationText = formatSongDuration(song.durationMin, song.durationSec);
+    const artistText = song.artist?.trim() || 'Artista no especificado';
+
     const item = document.createElement('div');
     item.className = 'song-item song-item-library';
     item.dataset.id = song.id;
@@ -527,8 +620,10 @@ function renderLibrary() {
           ${inSetlist ? '<span class="in-setlist-badge">En setlist</span>' : ''}
           ${song.hasAudio ? '<span class="in-setlist-badge" style="background: rgba(59, 130, 246, 0.15); color: #60a5fa;">🎵 Audio</span>' : ''}
         </div>
-        <div class="song-item-preview">${escapeHtml(preview(song.lyrics))}</div>
+        <div class="song-item-artist">${escapeHtml(artistText)}</div>
       </div>
+      ${renderEnergyBadge(song.energy)}
+      ${durationText ? `<span class="song-duration-badge">⏱ ${durationText}</span>` : ''}
       <div class="song-item-actions">
         ${inSetlist ? '' : `<button type="button" class="btn btn-ghost" data-action="add-setlist" data-id="${song.id}">+ Setlist</button>`}
         <button type="button" class="btn btn-ghost btn-icon" data-action="edit" data-id="${song.id}" aria-label="Editar">✎</button>
@@ -681,6 +776,10 @@ async function openNewSong() {
   editingId = null;
   editTitle.textContent = 'Nueva canción';
   songTitle.value = '';
+  if (songArtist) songArtist.value = '';
+  if (songDurationMin) songDurationMin.value = '';
+  if (songDurationSec) songDurationSec.value = '';
+  setEditEnergy(0);
   setSongLyricsValue('');
   resetEditAudioState();
   btnDelete.classList.add('hidden');
@@ -694,6 +793,10 @@ async function openEditSong(id) {
   editingId = id;
   editTitle.textContent = 'Editar canción';
   songTitle.value = song.title;
+  if (songArtist) songArtist.value = song.artist || '';
+  if (songDurationMin) songDurationMin.value = song.durationMin ?? '';
+  if (songDurationSec) songDurationSec.value = song.durationSec ?? '';
+  setEditEnergy(song.energy || 0);
   setSongLyricsValue(song.lyrics);
   btnDelete.classList.remove('hidden');
 
@@ -714,7 +817,12 @@ async function openEditSong(id) {
 
 async function saveSong() {
   const title = songTitle.value.trim();
+  const artist = songArtist ? songArtist.value.trim() : '';
+  const durationMin = songDurationMin && songDurationMin.value !== '' ? Math.max(0, parseInt(songDurationMin.value, 10) || 0) : '';
+  const durationSec = songDurationSec && songDurationSec.value !== '' ? Math.min(59, Math.max(0, parseInt(songDurationSec.value, 10) || 0)) : '';
+  const energy = currentEditEnergy;
   const lyrics = getSongLyricsValue();
+
   if (!title) {
     songTitle.focus();
     return;
@@ -730,6 +838,10 @@ async function saveSong() {
     const song = songs.find(s => s.id === editingId);
     if (song) {
       song.title = title;
+      song.artist = artist;
+      song.durationMin = durationMin;
+      song.durationSec = durationSec;
+      song.energy = energy;
       song.lyrics = lyrics;
       if (currentEditAudioBlob) {
         await saveSongAudio(editingId, currentEditAudioBlob, currentEditAudioName);
@@ -746,7 +858,7 @@ async function saveSong() {
       await saveSongAudio(songId, currentEditAudioBlob, currentEditAudioName);
       hasAudio = true;
     }
-    songs.push({ id: songId, title, lyrics, hasAudio });
+    songs.push({ id: songId, title, artist, durationMin, durationSec, energy, lyrics, hasAudio });
     setlistIds.push(songId);
     persistSetlistIds();
   }
@@ -1100,11 +1212,18 @@ function buildExportData() {
     version: 2,
     app: 'quatroletras',
     exportedAt: new Date().toISOString(),
-    songs: songs.map(s => ({ id: s.id, title: s.title, lyrics: s.lyrics })),
+    songs: songs.map(s => ({
+      id: s.id,
+      title: s.title,
+      artist: s.artist || '',
+      durationMin: s.durationMin ?? '',
+      durationSec: s.durationSec ?? '',
+      energy: s.energy || 0,
+      lyrics: s.lyrics
+    })),
     setlists: setlists.map(sl => ({ id: sl.id, name: sl.name, songIds: [...sl.songIds] })),
     activeSetlistId,
     sectionFontSizes,
-    // Compatibilidad con versiones anteriores
     setlist: [...(getActiveSetlist()?.songIds ?? setlistIds)],
   };
 }
@@ -1637,6 +1756,17 @@ importFileInput?.addEventListener('change', async e => {
 
 document.addEventListener('fullscreenchange', updateFullscreenButtons);
 
+energySelector?.querySelectorAll('.energy-bar').forEach(bar => {
+  bar.addEventListener('click', e => {
+    e.stopPropagation();
+    const lvl = parseInt(bar.dataset.level, 10);
+    if (currentEditEnergy === lvl) {
+      setEditEnergy(0);
+    } else {
+      setEditEnergy(lvl);
+    }
+  });
+});
 btnSetNextKey.addEventListener('click', () => startPedalCapture('next'));
 btnSetBackKey.addEventListener('click', () => startPedalCapture('back'));
 
@@ -1739,10 +1869,9 @@ setlistList.addEventListener('pointerup', e => {
 setlistList.addEventListener('pointercancel', clearDragState);
 
 setlistList.addEventListener('click', e => {
-  if (e.target.closest('.drag-handle') || e.target.closest('.song-reorder')) return;
-
   const btn = e.target.closest('[data-action]');
   if (btn) {
+    e.stopPropagation();
     const { action, id } = btn.dataset;
     if (action === 'show') {
       showSong(id);
@@ -1761,6 +1890,8 @@ setlistList.addEventListener('click', e => {
       return;
     }
   }
+
+  if (e.target.closest('.drag-handle')) return;
 
   const item = e.target.closest('.song-item');
   if (item && item.dataset.id) {

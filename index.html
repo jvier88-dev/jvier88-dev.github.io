@@ -27,7 +27,10 @@
     <main class="manage-main">
       <section class="setlist-section">
         <div class="section-header">
-          <h2>Setlist</h2>
+          <div class="section-title-group">
+            <h2>Setlist</h2>
+            <span id="setlist-total-duration" class="setlist-total-duration">⏱ 0 min</span>
+          </div>
           <button id="btn-add-to-setlist" class="btn btn-ghost">+ Añadir canciones</button>
         </div>
         <div class="setlist-selector">
@@ -93,6 +96,37 @@
         <span>Título</span>
         <input type="text" id="song-title" placeholder="Nombre de la canción" autocomplete="off">
       </label>
+      <label class="field">
+        <span>Artista</span>
+        <input type="text" id="song-artist" placeholder="Nombre del artista o grupo" autocomplete="off">
+      </label>
+      <div class="field">
+        <span>Duración aproximada</span>
+        <div class="duration-inputs">
+          <label class="duration-field">
+            <input type="number" id="song-duration-min" min="0" max="999" placeholder="0" class="duration-input">
+            <span class="duration-unit">min</span>
+          </label>
+          <span class="duration-colon">:</span>
+          <label class="duration-field">
+            <input type="number" id="song-duration-sec" min="0" max="59" placeholder="00" class="duration-input">
+            <span class="duration-unit">seg</span>
+          </label>
+        </div>
+      </div>
+      <div class="field">
+        <div class="field-label-row">
+          <span>Energía de la canción</span>
+          <span id="energy-level-display" class="energy-level-display">Sin definir</span>
+        </div>
+        <div id="energy-selector" class="energy-selector" data-energy="0">
+          <button type="button" class="energy-bar" data-level="1" title="Grado 1 - Muy baja (Cian)"></button>
+          <button type="button" class="energy-bar" data-level="2" title="Grado 2 - Baja (Verde)"></button>
+          <button type="button" class="energy-bar" data-level="3" title="Grado 3 - Media (Amarillo)"></button>
+          <button type="button" class="energy-bar" data-level="4" title="Grado 4 - Alta (Naranja)"></button>
+          <button type="button" class="energy-bar" data-level="5" title="Grado 5 - Muy alta (Rojo)"></button>
+        </div>
+      </div>
       <div class="field">
         <span>Archivo de audio (opcional)</span>
         <div class="audio-input-wrapper">
