@@ -41,7 +41,7 @@
             <button id="btn-delete-setlist" class="btn btn-ghost btn-icon" aria-label="Eliminar setlist" title="Eliminar">🗑</button>
           </div>
         </div>
-        <p class="list-hint">Orden de presentación en escenario. Usa ↑↓ o arrastra ⠿ para reordenar.</p>
+        <p class="list-hint">Orden de presentación en escenario. Arrastra ⠿ para reordenar.</p>
         <div id="setlist-list" class="song-list"></div>
         <p id="setlist-empty" class="empty-state">El setlist está vacío. Añade canciones desde la biblioteca.</p>
       </section>
@@ -52,6 +52,33 @@
           <button id="btn-new-song" class="btn btn-primary">+ Nueva canción</button>
         </div>
         <p class="list-hint">Todas tus canciones. Créalas y edítalas aquí; el setlist define cuáles y en qué orden se presentan.</p>
+        <div class="filter-bar">
+          <div class="filter-input-wrapper">
+            <span class="filter-search-icon">🔍</span>
+            <input type="text" id="library-search-input" class="filter-search-input" placeholder="Buscar por título o artista...">
+          </div>
+          <div class="filter-selects-row">
+            <select id="library-filter-artist" class="filter-select" aria-label="Filtrar por artista">
+              <option value="">Todos los artistas</option>
+            </select>
+            <select id="library-filter-energy" class="filter-select" aria-label="Filtrar por energía">
+              <option value="">Todas las energías</option>
+              <option value="1">⚡ Grado 1 (Muy baja)</option>
+              <option value="2">⚡ Grado 2 (Baja)</option>
+              <option value="3">⚡ Grado 3 (Media)</option>
+              <option value="4">⚡ Grado 4 (Alta)</option>
+              <option value="5">⚡ Grado 5 (Muy alta)</option>
+              <option value="0">Sin definir</option>
+            </select>
+            <select id="library-sort" class="filter-select" aria-label="Ordenar canciones">
+              <option value="title-asc">Alfabético (A-Z)</option>
+              <option value="title-desc">Alfabético (Z-A)</option>
+              <option value="artist-asc">Artista (A-Z)</option>
+              <option value="energy-desc">Energía (Mayor-Menor)</option>
+              <option value="energy-asc">Energía (Menor-Mayor)</option>
+            </select>
+          </div>
+        </div>
         <div id="library-list" class="song-list"></div>
         <p id="library-empty" class="empty-state">No hay canciones todavía. Crea la primera.</p>
       </section>
@@ -220,6 +247,33 @@
       <div class="picker-header">
         <h2>Añadir al setlist</h2>
         <button id="btn-close-add-setlist" class="btn btn-ghost" aria-label="Cerrar">✕</button>
+      </div>
+      <div class="filter-bar filter-bar-modal">
+        <div class="filter-input-wrapper">
+          <span class="filter-search-icon">🔍</span>
+          <input type="text" id="add-setlist-search-input" class="filter-search-input" placeholder="Buscar por título o artista...">
+        </div>
+        <div class="filter-selects-row">
+          <select id="add-setlist-filter-artist" class="filter-select" aria-label="Filtrar por artista">
+            <option value="">Todos los artistas</option>
+          </select>
+          <select id="add-setlist-filter-energy" class="filter-select" aria-label="Filtrar por energía">
+            <option value="">Todas las energías</option>
+            <option value="1">⚡ Grado 1 (Muy baja)</option>
+            <option value="2">⚡ Grado 2 (Baja)</option>
+            <option value="3">⚡ Grado 3 (Media)</option>
+            <option value="4">⚡ Grado 4 (Alta)</option>
+            <option value="5">⚡ Grado 5 (Muy alta)</option>
+            <option value="0">Sin definir</option>
+          </select>
+          <select id="add-setlist-sort" class="filter-select" aria-label="Ordenar canciones">
+            <option value="title-asc">Alfabético (A-Z)</option>
+            <option value="title-desc">Alfabético (Z-A)</option>
+            <option value="artist-asc">Artista (A-Z)</option>
+            <option value="energy-desc">Energía (Mayor-Menor)</option>
+            <option value="energy-asc">Energía (Menor-Mayor)</option>
+          </select>
+        </div>
       </div>
       <div id="add-setlist-list" class="picker-list"></div>
       <p id="add-setlist-empty" class="empty-state hidden">Todas las canciones ya están en el setlist.</p>

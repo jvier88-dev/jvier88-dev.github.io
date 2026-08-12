@@ -106,6 +106,17 @@ const btnScrollUp = document.getElementById('btn-scroll-up');
 const btnScrollDown = document.getElementById('btn-scroll-down');
 const scrollAmountDisplay = document.getElementById('scroll-amount-display');
 
+// DOM refs para Filtros (Biblioteca y Añadir al setlist)
+const librarySearchInput = document.getElementById('library-search-input');
+const libraryFilterArtist = document.getElementById('library-filter-artist');
+const libraryFilterEnergy = document.getElementById('library-filter-energy');
+const librarySort = document.getElementById('library-sort');
+
+const addSetlistSearchInput = document.getElementById('add-setlist-search-input');
+const addSetlistFilterArtist = document.getElementById('add-setlist-filter-artist');
+const addSetlistFilterEnergy = document.getElementById('add-setlist-filter-energy');
+const addSetlistSort = document.getElementById('add-setlist-sort');
+
 // DOM refs para Audio y Presentación
 const songAudioInput = document.getElementById('song-audio-input');
 const audioUploadLabel = document.getElementById('audio-upload-label');
@@ -475,6 +486,7 @@ function isPickerOpen() {
 }
 
 function renderAll() {
+  populateArtistSelects();
   renderSetlist();
   renderLibrary();
 }
@@ -565,8 +577,6 @@ function renderSetlist() {
 
   items.forEach((song, index) => {
     const num = index + 1;
-    const isFirst = index === 0;
-    const isLast = index === items.length - 1;
     const durationText = formatSongDuration(song.durationMin, song.durationSec);
     const artistText = song.artist?.trim() || 'Artista no especificado';
 
@@ -584,12 +594,8 @@ function renderSetlist() {
         </div>
         <div class="song-item-artist">${escapeHtml(artistText)}</div>
       </div>
-      ${renderEnergyBadge(song.energy)}
       ${durationText ? `<span class="song-duration-badge">⏱ ${durationText}</span>` : ''}
-      <div class="song-reorder">
-        <button type="button" class="btn btn-ghost" data-action="up" data-id="${song.id}" ${isFirst ? 'disabled' : ''} aria-label="Subir en el setlist">↑</button>
-        <button type="button" class="btn btn-ghost" data-action="down" data-id="${song.id}" ${isLast ? 'disabled' : ''} aria-label="Bajar en el setlist">↓</button>
-      </div>
+      ${renderEnergyBadge(song.energy)}
       <div class="song-item-actions">
         <button type="button" class="btn btn-ghost btn-icon" data-action="remove" data-id="${song.id}" aria-label="Quitar del setlist" title="Quitar del setlist">−</button>
         <button type="button" class="btn btn-primary btn-icon" data-action="show" data-id="${song.id}" aria-label="Mostrar">▶</button>
@@ -601,11 +607,112 @@ function renderSetlist() {
   updateSetlistTotalDuration();
 }
 
-function renderLibrary() {
-  libraryList.innerHTML = '';
-  libraryEmpty.classList.toggle('hidden', songs.length > 0);
+function filterAndSortSongs(songArray, search = '', artist = '', energy = '', sort = 'title-asc') {
+  const query = (search || '').toLowerCase().trim();
+  
+  let result = songArray.filter(song => {
+    if (query) {
+      const matchTitle = (song.title || '').toLowerCase().includes(query);
+      const matchArtist = (song.artist || '').toLowerCase().includes(query);
+      if (!matchTitle && !matchArtist) return false;
+    }
+    
+    if (artist !== '') {
+      const songArtist = (song.artist || '').trim();
+      if (songArtist !== artist) return false;
+    }
+    
+    if (energy !== '') {
+      const songEnergy = String(song.energy || 0);
+      if (songEnergy !== energy) return false;
+    }
+    
+    return true;
+  });
 
-  songs.forEach(song => {
+  result.sort((a, b) => {
+    if (sort === 'title-asc') {
+      return (a.title || '').localeCompare(b.title || '', undefined, { sensitivity: 'base', numeric: true });
+    }
+    if (sort === 'title-desc') {
+      return (b.title || '').localeCompare(a.title || '', undefined, { sensitivity: 'base', numeric: true });
+    }
+    if (sort === 'artist-asc') {
+      const artA = (a.artist || '').trim();
+      const artB = (b.artist || '').trim();
+      if (!artA && artB) return 1;
+      if (artA && !artB) return -1;
+      const cmp = artA.localeCompare(artB, undefined, { sensitivity: 'base', numeric: true });
+      if (cmp !== 0) return cmp;
+      return (a.title || '').localeCompare(b.title || '', undefined, { sensitivity: 'base', numeric: true });
+    }
+    if (sort === 'energy-desc') {
+      const eA = parseInt(a.energy, 10) || 0;
+      const eB = parseInt(b.energy, 10) || 0;
+      if (eB !== eA) return eB - eA;
+      return (a.title || '').localeCompare(b.title || '', undefined, { sensitivity: 'base', numeric: true });
+    }
+    if (sort === 'energy-asc') {
+      const eA = parseInt(a.energy, 10) || 0;
+      const eB = parseInt(b.energy, 10) || 0;
+      if (eA !== eB) return eA - eB;
+      return (a.title || '').localeCompare(b.title || '', undefined, { sensitivity: 'base', numeric: true });
+    }
+    return 0;
+  });
+
+  return result;
+}
+
+function populateArtistSelects() {
+  const artists = [...new Set(songs.map(s => s.artist?.trim()).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+
+  const selects = [
+    { el: libraryFilterArtist, current: libraryFilterArtist?.value || '' },
+    { el: addSetlistFilterArtist, current: addSetlistFilterArtist?.value || '' }
+  ];
+
+  selects.forEach(({ el, current }) => {
+    if (!el) return;
+    const existingValues = Array.from(el.options).map(o => o.value).filter(Boolean);
+    const isSame = existingValues.length === artists.length && existingValues.every((v, i) => v === artists[i]);
+    if (isSame) {
+      if (current) el.value = current;
+      return;
+    }
+
+    el.innerHTML = '<option value="">Todos los artistas</option>';
+    artists.forEach(artist => {
+      const opt = document.createElement('option');
+      opt.value = artist;
+      opt.textContent = artist;
+      el.appendChild(opt);
+    });
+    if (current) el.value = current;
+  });
+}
+
+function renderLibrary() {
+  const search = librarySearchInput?.value || '';
+  const artist = libraryFilterArtist?.value || '';
+  const energy = libraryFilterEnergy?.value || '';
+  const sort = librarySort?.value || 'title-asc';
+
+  const filteredSongs = filterAndSortSongs(songs, search, artist, energy, sort);
+
+  libraryList.innerHTML = '';
+  const hasSongs = songs.length > 0;
+  const hasFiltered = filteredSongs.length > 0;
+
+  libraryEmpty.classList.toggle('hidden', hasFiltered);
+  if (!hasSongs) {
+    libraryEmpty.textContent = 'No hay canciones todavía. Crea la primera.';
+  } else if (!hasFiltered) {
+    libraryEmpty.textContent = 'No se encontraron canciones con los filtros aplicados.';
+  }
+
+  filteredSongs.forEach(song => {
     const inSetlist = isInSetlist(song.id);
     const durationText = formatSongDuration(song.durationMin, song.durationSec);
     const artistText = song.artist?.trim() || 'Artista no especificado';
@@ -622,8 +729,8 @@ function renderLibrary() {
         </div>
         <div class="song-item-artist">${escapeHtml(artistText)}</div>
       </div>
-      ${renderEnergyBadge(song.energy)}
       ${durationText ? `<span class="song-duration-badge">⏱ ${durationText}</span>` : ''}
+      ${renderEnergyBadge(song.energy)}
       <div class="song-item-actions">
         ${inSetlist ? '' : `<button type="button" class="btn btn-ghost" data-action="add-setlist" data-id="${song.id}">+ Setlist</button>`}
         <button type="button" class="btn btn-ghost btn-icon" data-action="edit" data-id="${song.id}" aria-label="Editar">✎</button>
@@ -715,26 +822,55 @@ function applyFormatting(command, value = null) {
 
 // ── Add to setlist overlay ──
 
-function openAddSetlistOverlay() {
+function renderAddSetlistList() {
   const available = songs.filter(s => !isInSetlist(s.id));
+  const search = addSetlistSearchInput?.value || '';
+  const artist = addSetlistFilterArtist?.value || '';
+  const energy = addSetlistFilterEnergy?.value || '';
+  const sort = addSetlistSort?.value || 'title-asc';
+
+  const filtered = filterAndSortSongs(available, search, artist, energy, sort);
+
   addSetlistList.innerHTML = '';
-  addSetlistEmpty.classList.toggle('hidden', available.length > 0);
-  addSetlistList.classList.toggle('hidden', available.length === 0);
+  const hasAvailable = available.length > 0;
+  const hasFiltered = filtered.length > 0;
 
-  available.forEach(song => {
-    const btn = document.createElement('button');
-    btn.className = 'picker-item';
-    btn.innerHTML = `
-      <span class="picker-item-title">${escapeHtml(song.title)}</span>
-      <span class="picker-item-add">+</span>
+  addSetlistEmpty.classList.toggle('hidden', hasFiltered);
+  addSetlistList.classList.toggle('hidden', !hasFiltered);
+
+  if (!hasAvailable) {
+    addSetlistEmpty.textContent = 'Todas las canciones ya están en el setlist.';
+  } else if (!hasFiltered) {
+    addSetlistEmpty.textContent = 'No se encontraron canciones con los filtros aplicados.';
+  }
+
+  filtered.forEach(song => {
+    const durationText = formatSongDuration(song.durationMin, song.durationSec);
+    const artistText = song.artist?.trim() || 'Artista no especificado';
+
+    const item = document.createElement('div');
+    item.className = 'song-item song-item-library';
+    item.dataset.id = song.id;
+    item.innerHTML = `
+      <div class="song-item-info">
+        <div class="song-item-title">
+          ${escapeHtml(song.title)}
+          ${song.hasAudio ? '<span class="in-setlist-badge" style="background: rgba(59, 130, 246, 0.15); color: #60a5fa;">🎵 Audio</span>' : ''}
+        </div>
+        <div class="song-item-artist">${escapeHtml(artistText)}</div>
+      </div>
+      ${durationText ? `<span class="song-duration-badge">⏱ ${durationText}</span>` : ''}
+      ${renderEnergyBadge(song.energy)}
+      <div class="song-item-actions">
+        <button type="button" class="btn btn-ghost" data-action="add-setlist" data-id="${song.id}">+ Setlist</button>
+      </div>
     `;
-    btn.addEventListener('click', () => {
-      addToSetlist(song.id);
-      openAddSetlistOverlay();
-    });
-    addSetlistList.appendChild(btn);
+    addSetlistList.appendChild(item);
   });
+}
 
+function openAddSetlistOverlay() {
+  renderAddSetlistList();
   addSetlistOverlay.classList.remove('hidden');
 }
 
@@ -1048,6 +1184,7 @@ function showCurrentSection() {
     displayContent.querySelectorAll('.lyrics-section').forEach((el, i) => {
       el.classList.toggle('active', !showingTitle && i === currentSectionIndex);
     });
+    if (displayContent) displayContent.scrollTop = 0;
   } else {
     // Modo continuo: mostrar siempre la sección continua
     displayContent.querySelectorAll('.lyrics-section').forEach(el => {
@@ -1443,7 +1580,9 @@ function goToNextSong(force = false) {
   const setlist = getSetlistSongs();
   if (setlist.length <= 1) return;
 
-  if (!force && activeAudio && !activeAudio.ended && activeAudio.duration > 0 && (activeAudio.duration - activeAudio.currentTime > 1.5)) {
+  const isAudioStarted = activeAudio && (!activeAudio.paused || activeAudio.currentTime > 0.5);
+
+  if (!force && isAudioStarted && !activeAudio.ended && activeAudio.duration > 0 && (activeAudio.duration - activeAudio.currentTime > 1.5)) {
     openAudioWarning();
     return;
   }
@@ -1572,6 +1711,16 @@ function pickerNavigate(delta) {
 }
 
 // ── Event listeners ──
+
+librarySearchInput?.addEventListener('input', renderLibrary);
+libraryFilterArtist?.addEventListener('change', renderLibrary);
+libraryFilterEnergy?.addEventListener('change', renderLibrary);
+librarySort?.addEventListener('change', renderLibrary);
+
+addSetlistSearchInput?.addEventListener('input', renderAddSetlistList);
+addSetlistFilterArtist?.addEventListener('change', renderAddSetlistList);
+addSetlistFilterEnergy?.addEventListener('change', renderAddSetlistList);
+addSetlistSort?.addEventListener('change', renderAddSetlistList);
 
 document.getElementById('btn-new-song').addEventListener('click', openNewSong);
 document.getElementById('btn-add-to-setlist').addEventListener('click', openAddSetlistOverlay);
@@ -1911,6 +2060,23 @@ libraryList.addEventListener('click', e => {
   const item = e.target.closest('.song-item');
   if (item && item.dataset.id) {
     showSong(item.dataset.id);
+  }
+});
+
+addSetlistList.addEventListener('click', e => {
+  const btn = e.target.closest('[data-action="add-setlist"]');
+  if (btn) {
+    e.stopPropagation();
+    const id = btn.dataset.id;
+    addToSetlist(id);
+    renderAddSetlistList();
+    return;
+  }
+
+  const item = e.target.closest('.song-item');
+  if (item && item.dataset.id) {
+    addToSetlist(item.dataset.id);
+    renderAddSetlistList();
   }
 });
 
