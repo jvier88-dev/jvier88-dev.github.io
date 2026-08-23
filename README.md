@@ -1,91 +1,108 @@
-# QuatroLetras
+# 🎵 QuatroLetras - Teleprompter de Letras, Setlists y Control de Energía para Músicos
 
-App web para mostrar letras de canciones a pantalla completa en tablet durante presentaciones en vivo.
+**QuatroLetras** es una aplicación web progresiva (**PWA**) diseñada específicamente para músicos, bandas y solistas en escenario. Permite gestionar una biblioteca completa de canciones, estructurar setlists dinámicos organizados por **Tandas** y **Speeches**, analizar la **evolución de la energía** del show mediante gráficos interactivos y controlar el pase de letras en vivo mediante **pedales inalámbricos Page Turner de 2 botones** o gestos táctiles.
 
-# Resumen
+---
 
-- App web para mostrar letras de canciones en tablet, telefono o computador.
-- **Biblioteca** almacena todas las letras de canciones ingresadas.
-- **Setlist** almacena una selección personalizada de canciones.
-- **Lista de Setlist** abre un desplegable con una lista de **Setlist** donde se selecciona la lista deseada.
-- **Modo presentación** muestra la canción en pantalla. Incluye avance de letra en **Scroll** y **Párrafo**.
-- **Scroll** muetra la letra de forma continua. Se puede controlar el avance mediante **Avance pixeles** el cual mide cuanto avanza la letra al pulsar de botón de avance.
-- **Párrafp** muestra la letra en párrafos en pantalla. Al momento de ingresar la letra de la canción se debe separar cada párrafo mediante una **Línea vacía**.
-- El sistema guarda el dato **Avance pixeles** para cada canción, asi como el **Tamaño de fuente** de cada párrafo por separado.
-- **Exportar** permite guardar toda la **biblioteca**, los **Setlist** y sus listas.
-- Permite ser controlado por un **Pedal Turner**. 
- 
- 
-## Uso
+## 🚀 Características Principales
 
-1. Abre `index.html` en el navegador del tablet (Chrome o Safari).
-2. Crea canciones en **Biblioteca** con **+ Nueva canción**.
-3. Cada parrafo de la canción separado por una linea vacía se verá como párrafo separado en modo **Párrafo**.
-4. Organiza el **Setlist** con el orden que quieras para la presentación (arrastra, ↑↓, o **+ Añadir canciones**).
-5. Puedes agregar otra setlist con **+**, nombrar tu setlist con **✎** o eliminarla con **🗑**.  
-6. Pulsa **▶** en una canción del setlist para mostrarla a pantalla completa.
-7. En la parte superior del **Modo visualización** hay 4 botones: **Selector de modo** entre modo párrafo y continuo, **✎** el cual permite editar **Tamaño de fuente** y **Avance Pixeles**, **⛶** para pantalla completa y **✕** para cerrar.
-8. Al comienzo de cada canción se muestra su número y nombre. Desde esta pantalla, al pulsar **Atras** para ver un listado rápido de canciones.
+### 📚 1. Gestión de Biblioteca de Canciones
+- **Catálogo Completo**: Creación, edición y eliminación de canciones con título, artista, duración estimada y letra formateada.
+- **Escala de Energía (Grados 1 a 7)**: Asignación de niveles de energía desde Grado 1 (Muy baja) hasta Grado 7 (Clímax / Muy alta), con insignias visuales de mini-barras coloreadas.
+- **Formato Enriquecido de Letras**: Editor integrado con negrita, cursiva, subrayado, colores de texto personalizados e inserción de saltos de sección.
+- **Audio de Acompañamiento / Pistas**: Adjunta archivos de audio (`.mp3`, `.wav`, etc.) a cualquier canción con almacenamiento local seguro en IndexedDB y reproductor integrado.
+- **Filtros Avanzados y Búsqueda**: Filtrado instantáneo por texto (título/artista), artista específico, nivel de energía y ordenamiento alfabético o por intensidad.
 
-## Controles en modo presentación
+---
 
-| Acción | Cómo |
-|--------|------|
-| Siguiente estrofa | Pedal avanzar (Page Down por defecto) |
-| Estrofa anterior | Pedal retroceder (Page Up por defecto) |
-| Siguiente canción | Pedal avanzar en la **última estrofa** |
-| Elegir canción | Pedal retroceder en la **primera estrofa** → listado; usa los pedales para navegar |
-| Cambiar canción (táctil) | Toca la letra para abrir el selector |
-| Letra más grande/pequeña | Botones A+ / A− |
-| Pantalla completa | Botón ⛶ o tecla `F` |
-| Salir | Botón ✕ o `Esc` |
+### 🏷️ 2. Setlists con Tandas y Speeches
+- **Múltiples Setlists**: Crea, renombra, elimina y conmuta entre distintos setlists para diferentes conciertos o giras.
+- **🏷️ Tandas de Canciones**: Divide el setlist en bloques temáticos u organizativos.
+  - **7 Temas de Color Transparente**: Colores automáticos (Azul, Violeta, Esmeralda, Ámbar, Rosa, Índigo y Turquesa) que tiñen uniformemente todas las canciones pertenecientes a esa Tanda.
+  - **Conteo Automático**: Cálculo automático del número de canciones y duración acumulada total de cada Tanda.
+- **🎙️ Speeches y Notas de Escenario**: Inserta momentos de alocución, presentaciones o notas de escenario entre las canciones sin necesidad de añadirlas a la biblioteca.
+  - **Ubicación Flexible**:
+    - **🏷️ En Tanda (`in-tanda`)**: Forma parte de la tanda actual, adopta su color y suma su duración al tiempo de la tanda.
+    - **🎙️ Entre Tandas (`standalone`)**: Actúa como un intermedio independiente resaltado en tono violeta punteado.
+- **Reordenamiento por Arrastre (Drag & Drop)**: Arrastra fácilmente tarjetas completas o mediante la manija `⠿`, totalmente optimizado para ratón en escritorio y gestos táctiles en tablets y móviles.
 
-## Pedal turner (2 botones)
+---
 
-La app muestra **una estrofa a la vez** (separadas por líneas en blanco en la letra).
+### 📊 3. Gráfico Interactivo de Estructura y Energía
+- **Barra de Estructura Temporal**: Línea de tiempo visual proporcional que muestra la duración de cada bloque (`Tanda 1` -> `Speech` -> `Tanda 2` -> `Tanda 3`).
+- **Curva Bézier de Energía (Escala 1 a 7)**: Gráfico SVG con degradados que representa la evolución de la intensidad del show a lo largo de todo el concierto.
+- **Nodos Interactivos y Tooltips**: Al pasar el cursor o tocar un nodo, muestra título, artista, nivel de energía (`⚡ Grado N/7`), duración y tanda correspondiente.
+- **Navegación al Clic**: Hacer clic en cualquier punto del gráfico o bloque de estructura desplaza suavemente la pantalla hasta esa canción en el setlist.
+- **Colapsable**: Botón para expandir o plegar el panel del gráfico (`▲ Ocultar gráfico` / `▼ Mostrar gráfico`).
 
-| Pedal | Comportamiento |
-|-------|----------------|
-| **Avanzar** | Siguiente estrofa → al final de la canción, pasa a la **siguiente canción** |
-| **Retroceder** | Estrofa anterior → en la primera estrofa, abre el **listado** para elegir otra |
+---
 
-En el listado abierto:
-- **Avanzar** = siguiente canción (la muestra al instante)
-- **Retroceder** = canción anterior; en la primera, cierra el listado
+### 👁️ 4. Modo Vista Simple (Limpia)
+- **Alternancia de 1 Clic (`👁️ Tandas & Speech`)**: Permite ocultar temporalmente los divisores de tanda, speeches, colores y el gráfico de energía para obtener un listado minimalista y continuo de canciones.
+- **Persistencia**: La preferencia de vista seleccionada se guarda automáticamente en `localStorage`.
 
-Puedes reconfigurar las teclas del pedal en la pantalla principal (sección **Pedal turner**). La mayoría de pedales USB envían **Page Down** y **Page Up**; también funcionan las flechas del teclado.
+---
 
-## Instalar en tablet (opcional)
+### 🎤 5. Modo Escenario (Visualizador de Letras en Vivo)
+- **Pantalla Completa y Bloqueo de Suspensión (Wake Lock)**: Evita que la pantalla de la tablet o teléfono se apague durante el concierto.
+- **Modos de Visualización**:
+  - **Por Secciones (Paso a Paso)**: Avanza párrafos o estrofas con indicador de sección gigante (ej. `1 / 4`).
+  - **Modo Continuo (Desplazamiento Suave)**: Scroll fluido de la letra completa.
+- **Ajuste Dinámico de Tipografía**: Control de tamaño de fuente independiente por sección y por canción.
+- **Diapositiva para Speeches**: Interfaz oscura de alta legibilidad para discursos y notas de escenario.
 
-En Chrome/Safari: menú → **Añadir a pantalla de inicio**. La app funciona sin conexión una vez cargada.
+---
 
-## Datos
+### 🦶 6. Control por Pedal Page Turner (2 Botones Bluetooth)
+- **Navegación 100% Manos Libres**: Mapeo personalizable para pedales Bluetooth (PageDown, PageUp, Flechas, Espacio, Enter).
+- **Flujo Optimizado para 2 Botones**:
+  - **Botón 1 (Atrás / Up)**: Abre el menú flotante del setlist (Picker) y navega hacia ARRIBA por las canciones.
+  - **Botón 2 (Adelante / Down)**: En el visor, avanza secciones de la letra. En el menú flotante del setlist, navega hacia ABAJO por las canciones.
+  - **Carga Directa de Letra**: Al navegar por el menú flotante, la canción resaltada se prepara directamente en su letra (`showingTitle = false`), de modo que al cerrar el menú estás listo para cantar sin saltos ni portadas intermedias.
+- **Protección de Audio Activo**: Cuadro de confirmación si se intenta saltar de canción mientras un audio de acompañamiento se encuentra reproduciéndose.
 
-Las canciones se guardan en el navegador (localStorage). No se envían a ningún servidor.
-Tamaño de fuente por estrofa: cada estrofa de cada canción guarda su propio tamaño. Al ajustar con A+/A− durante la presentación, se guarda solo para la estrofa visible. Al volver a esa canción, cada párrafo recupera el tamaño que le configuraste.
+---
 
-## Biblioteca y setlist
+### ⚙️ 7. Configuración, Exportación e Importación (JSON v3)
+- **Respaldos Completos (JSON v3)**: Exporta e importa toda tu biblioteca, setlists, tandas, speeches, audios y configuraciones en un solo archivo.
+- **Resolución Inteligente de Conflictos**: Al importar canciones con el mismo ID pero datos distintos (ej. duración o letra modificada), la app ofrece:
+  1. Sobreescribir solo esa canción.
+  2. Mantener la versión actual de la biblioteca.
+  3. Sobreescribir todas las canciones en conflicto.
 
-La app separa dos conceptos:
+---
 
-- **Biblioteca**: todas tus canciones. Créalas, edítalas o elimínalas aquí.
-- **Setlist**: el orden de presentación en escenario. Puedes incluir solo las canciones que quieras y ordenarlas como prefieras.
-- **Lista de Setlist**: gestiona todas las setlist ingresadas.
+### 📱 8. Diseño Responsivo y Modo Offline (PWA)
+- **Estación de Trabajo en Tablets y PC**: Diseño en 2 columnas paralelas (Setlist a la izquierda, Biblioteca a la derecha) en modo horizontal y tablets.
+- **Diseño Adaptativo en Celulares**: Botones de acción organizados en una cuadrícula simétrica 2x2 en pantallas móviles verticales.
+- **Funcionamiento 100% Offline**: Service Worker (`sw.js`) que almacena en caché todos los archivos de la aplicación para trabajar sin conexión a internet durante tus presentaciones.
 
-Al crear una canción nueva se añade automáticamente al final del setlist en pantalla. Para quitar una canción del setlist sin borrarla de la biblioteca, usa el botón **−**. Para volver a añadirla, pulsa **+ Setlist** en la biblioteca o **+ Añadir canciones** en el setlist.
+---
 
-El número en el setlist define:
+## 🛠️ Tecnologías Utilizadas
 
-- Cómo se muestran en el selector de presentación
-- El avance con el **pedal** (siguiente canción = número siguiente)
+- **HTML5 Semantic & CSS3 Vanilla**: Animaciones CSS, Glassmorphism, CSS Grid y Flexbox responsivo sin dependencias pesadas.
+- **JavaScript Vanilla (ES6+)**: Lógica limpia modular sin frameworks externos.
+- **SVG Dinámico**: Generación de curvas Bézier y gráficos de energía interactivos.
+- **IndexedDB & LocalStorage**: Almacenamiento local persistente para canciones, audios binarios y configuraciones.
+- **Service Worker API**: Soporte PWA offline para instalación en dispositivos iOS, Android, Windows y macOS.
 
-Para reordenar el setlist: usa los botones **↑ ↓** o **arrastra** el ícono ⠿ en cada fila.
+---
 
-## Múltiples setlists
-En la pantalla de gestión, encima de la lista de canciones hay un selector desplegable con:
+## 📋 Estructura de Archivos
 
-- **Selector** — elige qué setlist ver y editar
-- **+** — crea un setlist nuevo (nombre personalizable)
-- **✎** — renombra el setlist activo
-- **🗑** — elimina el setlist activo (siempre queda al menos uno)
-Cada setlist guarda su propio orden de canciones. Al cambiar de setlist en el desplegable, la lista se actualiza al instante. Los datos existentes se migran automáticamente a un setlist llamado "Setlist 1".
+```
+QuatroLetras/
+├── index.html        # Estructura principal HTML5 y modales
+├── styles.css        # Sistema de estilos, variables CSS y temas de color de Tandas
+├── app.js            # Lógica completa de la app, estado, audio, gráfico SVG y pedal
+├── sw.js             # Service Worker para almacenamiento en caché offline (PWA)
+├── manifest.json     # Manifiesto de aplicación PWA
+└── README.md         # Documentación del proyecto
+```
+
+---
+
+## 📄 Licencia
+
+Desarrollado para uso musical profesional en escenario. Libre para personalización y uso en presentaciones en vivo.

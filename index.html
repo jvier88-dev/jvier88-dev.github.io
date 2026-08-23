@@ -22,6 +22,20 @@
         </div>
         <button id="btn-manage-fullscreen" class="btn btn-ghost btn-icon" aria-label="Pantalla completa" title="Pantalla completa">⛶</button>
       </div>
+      <nav id="manage-nav-tabs" class="nav-tabs" aria-label="Navegación principal">
+        <button type="button" class="tab-btn active" data-tab="all">
+          <span class="tab-icon">🏠</span> Principal
+        </button>
+        <button type="button" class="tab-btn" data-tab="setlist">
+          <span class="tab-icon">📜</span> Setlist
+        </button>
+        <button type="button" class="tab-btn" data-tab="library">
+          <span class="tab-icon">📚</span> Biblioteca
+        </button>
+        <button type="button" class="tab-btn" data-tab="settings">
+          <span class="tab-icon">⚙️</span> Configuración
+        </button>
+      </nav>
     </header>
 
     <main class="manage-main">
@@ -31,7 +45,12 @@
             <h2>Setlist</h2>
             <span id="setlist-total-duration" class="setlist-total-duration">⏱ 0 min</span>
           </div>
-          <button id="btn-add-to-setlist" class="btn btn-ghost">+ Añadir canciones</button>
+          <div class="setlist-header-actions">
+            <button id="btn-toggle-simple-mode" class="btn btn-ghost" title="Ocultar o mostrar Tandas, Speeches y Gráfico">👁️ Tandas & Speech</button>
+            <button id="btn-add-to-setlist" class="btn btn-ghost" title="Añadir canciones">+ Canción</button>
+            <button id="btn-add-tanda" class="btn btn-ghost" title="Añadir nueva tanda">+ Tanda</button>
+            <button id="btn-add-speech" class="btn btn-ghost" title="Añadir speech o intermedio">+ Speech</button>
+          </div>
         </div>
         <div class="setlist-selector">
           <select id="setlist-dropdown" class="setlist-dropdown" aria-label="Seleccionar setlist"></select>
@@ -42,6 +61,24 @@
           </div>
         </div>
         <p class="list-hint">Orden de presentación en escenario. Arrastra ⠿ para reordenar.</p>
+        <div id="setlist-chart-card" class="setlist-chart-card">
+          <div class="chart-card-header">
+            <div class="chart-card-title">
+              <span class="chart-card-icon">📊</span>
+              <span>Estructura y Energía del Setlist</span>
+            </div>
+            <button type="button" id="btn-toggle-chart" class="btn btn-ghost btn-xs" aria-label="Mostrar u ocultar gráfico">
+              <span id="chart-toggle-text">Ocultar gráfico</span> ▲
+            </button>
+          </div>
+          <div id="setlist-chart-wrapper" class="setlist-chart-wrapper">
+            <div class="chart-svg-container">
+              <svg id="setlist-energy-svg" class="setlist-energy-svg" viewBox="0 0 800 180" preserveAspectRatio="none"></svg>
+              <div id="chart-tooltip" class="chart-tooltip hidden"></div>
+            </div>
+            <div id="setlist-structure-bar" class="setlist-structure-bar"></div>
+          </div>
+        </div>
         <div id="setlist-list" class="song-list"></div>
         <p id="setlist-empty" class="empty-state">El setlist está vacío. Añade canciones desde la biblioteca.</p>
       </section>
@@ -65,9 +102,11 @@
               <option value="">Todas las energías</option>
               <option value="1">⚡ Grado 1 (Muy baja)</option>
               <option value="2">⚡ Grado 2 (Baja)</option>
-              <option value="3">⚡ Grado 3 (Media)</option>
-              <option value="4">⚡ Grado 4 (Alta)</option>
-              <option value="5">⚡ Grado 5 (Muy alta)</option>
+              <option value="3">⚡ Grado 3 (Baja-Media)</option>
+              <option value="4">⚡ Grado 4 (Media)</option>
+              <option value="5">⚡ Grado 5 (Media-Alta)</option>
+              <option value="6">⚡ Grado 6 (Alta)</option>
+              <option value="7">⚡ Grado 7 (Muy alta)</option>
               <option value="0">Sin definir</option>
             </select>
             <select id="library-sort" class="filter-select" aria-label="Ordenar canciones">
@@ -119,60 +158,65 @@
       <button id="btn-save" class="btn btn-primary">Guardar</button>
     </header>
     <main class="edit-main">
-      <label class="field">
-        <span>Título</span>
-        <input type="text" id="song-title" placeholder="Nombre de la canción" autocomplete="off">
-      </label>
-      <label class="field">
-        <span>Artista</span>
-        <input type="text" id="song-artist" placeholder="Nombre del artista o grupo" autocomplete="off">
-      </label>
-      <div class="field">
-        <span>Duración aproximada</span>
-        <div class="duration-inputs">
-          <label class="duration-field">
-            <input type="number" id="song-duration-min" min="0" max="999" placeholder="0" class="duration-input">
-            <span class="duration-unit">min</span>
-          </label>
-          <span class="duration-colon">:</span>
-          <label class="duration-field">
-            <input type="number" id="song-duration-sec" min="0" max="59" placeholder="00" class="duration-input">
-            <span class="duration-unit">seg</span>
-          </label>
-        </div>
-      </div>
-      <div class="field">
-        <div class="field-label-row">
-          <span>Energía de la canción</span>
-          <span id="energy-level-display" class="energy-level-display">Sin definir</span>
-        </div>
-        <div id="energy-selector" class="energy-selector" data-energy="0">
-          <button type="button" class="energy-bar" data-level="1" title="Grado 1 - Muy baja (Cian)"></button>
-          <button type="button" class="energy-bar" data-level="2" title="Grado 2 - Baja (Verde)"></button>
-          <button type="button" class="energy-bar" data-level="3" title="Grado 3 - Media (Amarillo)"></button>
-          <button type="button" class="energy-bar" data-level="4" title="Grado 4 - Alta (Naranja)"></button>
-          <button type="button" class="energy-bar" data-level="5" title="Grado 5 - Muy alta (Rojo)"></button>
-        </div>
-      </div>
-      <div class="field">
-        <span>Archivo de audio (opcional)</span>
-        <div class="audio-input-wrapper">
-          <input type="file" id="song-audio-input" accept="audio/*" class="audio-file-input">
-          <label for="song-audio-input" id="audio-upload-label" class="btn btn-ghost btn-audio-upload">
-            <span class="audio-upload-icon">🎵</span>
-            <span id="audio-upload-text">Seleccionar archivo de audio (MP3, WAV, etc.)</span>
-          </label>
-          <div id="audio-file-info" class="audio-file-info hidden">
-            <div class="audio-file-details">
-              <span class="audio-file-icon">🎧</span>
-              <span id="audio-file-name" class="audio-file-name">audio.mp3</span>
-            </div>
-            <audio id="edit-audio-preview" controls class="edit-audio-preview"></audio>
-            <button type="button" id="btn-remove-audio" class="btn btn-ghost btn-remove-audio" title="Quitar audio">🗑 Quitar audio</button>
+      <div class="edit-fields-column">
+        <label class="field">
+          <span>Título</span>
+          <input type="text" id="song-title" placeholder="Nombre de la canción" autocomplete="off">
+        </label>
+        <label class="field">
+          <span>Artista</span>
+          <input type="text" id="song-artist" placeholder="Nombre del artista o grupo" autocomplete="off">
+        </label>
+        <div class="field">
+          <span>Duración aproximada</span>
+          <div class="duration-inputs">
+            <label class="duration-field">
+              <input type="number" id="song-duration-min" min="0" max="999" placeholder="0" class="duration-input">
+              <span class="duration-unit">min</span>
+            </label>
+            <span class="duration-colon">:</span>
+            <label class="duration-field">
+              <input type="number" id="song-duration-sec" min="0" max="59" placeholder="00" class="duration-input">
+              <span class="duration-unit">seg</span>
+            </label>
           </div>
         </div>
+        <div class="field">
+          <div class="field-label-row">
+            <span>Energía de la canción</span>
+            <span id="energy-level-display" class="energy-level-display">Sin definir</span>
+          </div>
+          <div id="energy-selector" class="energy-selector" data-energy="0">
+            <button type="button" class="energy-bar" data-level="1" title="Grado 1 - Muy baja (Cian)"></button>
+            <button type="button" class="energy-bar" data-level="2" title="Grado 2 - Baja (Verde menta)"></button>
+            <button type="button" class="energy-bar" data-level="3" title="Grado 3 - Baja-Media (Verde lima)"></button>
+            <button type="button" class="energy-bar" data-level="4" title="Grado 4 - Media (Amarillo)"></button>
+            <button type="button" class="energy-bar" data-level="5" title="Grado 5 - Media-Alta (Naranja)"></button>
+            <button type="button" class="energy-bar" data-level="6" title="Grado 6 - Alta (Coral)"></button>
+            <button type="button" class="energy-bar" data-level="7" title="Grado 7 - Muy alta (Rojo)"></button>
+          </div>
+        </div>
+        <div class="field">
+          <span>Archivo de audio (opcional)</span>
+          <div class="audio-input-wrapper">
+            <input type="file" id="song-audio-input" accept="audio/*" class="audio-file-input">
+            <label for="song-audio-input" id="audio-upload-label" class="btn btn-ghost btn-audio-upload">
+              <span class="audio-upload-icon">🎵</span>
+              <span id="audio-upload-text">Seleccionar archivo de audio (MP3, WAV, etc.)</span>
+            </label>
+            <div id="audio-file-info" class="audio-file-info hidden">
+              <div class="audio-file-details">
+                <span class="audio-file-icon">🎧</span>
+                <span id="audio-file-name" class="audio-file-name">audio.mp3</span>
+              </div>
+              <audio id="edit-audio-preview" controls class="edit-audio-preview"></audio>
+              <button type="button" id="btn-remove-audio" class="btn btn-ghost btn-remove-audio" title="Quitar audio">🗑 Quitar audio</button>
+            </div>
+          </div>
+        </div>
+        <button id="btn-delete" class="btn btn-danger hidden">Eliminar canción</button>
       </div>
-      <div class="field">
+      <div class="field field-lyrics">
         <div class="field-label-row">
           <span>Letra</span>
           <div class="format-toolbar">
@@ -195,7 +239,6 @@
         </div>
         <div id="song-lyrics" class="song-lyrics-editor" contenteditable="true" data-placeholder="Pega o escribe la letra aquí&#10;&#10;Deja una línea en blanco entre estrofas&#10;(cada estrofa es un paso del pedal)"></div>
       </div>
-      <button id="btn-delete" class="btn btn-danger hidden">Eliminar canción</button>
     </main>
   </div>
 
@@ -261,9 +304,11 @@
             <option value="">Todas las energías</option>
             <option value="1">⚡ Grado 1 (Muy baja)</option>
             <option value="2">⚡ Grado 2 (Baja)</option>
-            <option value="3">⚡ Grado 3 (Media)</option>
-            <option value="4">⚡ Grado 4 (Alta)</option>
-            <option value="5">⚡ Grado 5 (Muy alta)</option>
+            <option value="3">⚡ Grado 3 (Baja-Media)</option>
+            <option value="4">⚡ Grado 4 (Media)</option>
+            <option value="5">⚡ Grado 5 (Media-Alta)</option>
+            <option value="6">⚡ Grado 6 (Alta)</option>
+            <option value="7">⚡ Grado 7 (Muy alta)</option>
             <option value="0">Sin definir</option>
           </select>
           <select id="add-setlist-sort" class="filter-select" aria-label="Ordenar canciones">
@@ -307,6 +352,65 @@
           <span class="pedal-hint-badge">Pedal →</span>
         </button>
       </div>
+    </div>
+  </div>
+
+  <!-- Modal de conflicto al importar -->
+  <div id="import-conflict-overlay" class="overlay hidden">
+    <div class="conflict-panel">
+      <div class="conflict-icon">⚠️</div>
+      <h2>Canción con datos distintos</h2>
+      <p id="conflict-description" class="conflict-description"></p>
+      <div id="conflict-diff-box" class="conflict-diff-box"></div>
+      <div class="conflict-actions">
+        <button type="button" id="btn-conflict-overwrite" class="btn btn-primary conflict-btn">Sobreescribir esta canción</button>
+        <button type="button" id="btn-conflict-keep" class="btn btn-ghost conflict-btn">Mantener datos de biblioteca</button>
+        <button type="button" id="btn-conflict-overwrite-all" class="btn btn-ghost conflict-btn conflict-btn-warning">Sobreescribir todo</button>
+      </div>
+    </div>
+  </div>
+  <!-- Modal de Edición de Speech -->
+  <div id="edit-speech-overlay" class="overlay hidden">
+    <div class="speech-panel">
+      <div class="picker-header">
+        <h2 id="speech-modal-title">🎙️ Speech / Discurso</h2>
+        <button type="button" id="btn-close-speech" class="btn btn-ghost" aria-label="Cerrar">✕</button>
+      </div>
+      <form id="speech-form" class="speech-form">
+        <label class="field">
+          <span>Título / Identificador del Speech</span>
+          <input type="text" id="speech-title-input" placeholder="ej. Palabras de bienvenida, Agradecimientos, Presentación del grupo" required autocomplete="off">
+        </label>
+        <div class="field">
+          <span>Duración estimada</span>
+          <div class="duration-inputs">
+            <label class="duration-field">
+              <input type="number" id="speech-duration-min" min="0" max="999" placeholder="0" class="duration-input">
+              <span class="duration-unit">min</span>
+            </label>
+            <span class="duration-colon">:</span>
+            <label class="duration-field">
+              <input type="number" id="speech-duration-sec" min="0" max="59" placeholder="00" class="duration-input">
+              <span class="duration-unit">seg</span>
+            </label>
+          </div>
+        </div>
+        <label class="field">
+          <span>Ubicación del Speech</span>
+          <select id="speech-placement-select" class="form-select">
+            <option value="in-tanda">🏷️ Pertenece a la Tanda actual (adquiere su color y suma a su tiempo)</option>
+            <option value="standalone">🎙️ Entre Tandas / Independiente (resaltado neutral)</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Texto o Notas del discurso</span>
+          <textarea id="speech-text-input" class="speech-textarea" rows="6" placeholder="Escribe aquí los puntos principales, saludos o notas para leer en el escenario..."></textarea>
+        </label>
+        <div class="speech-actions">
+          <button type="button" id="btn-cancel-speech" class="btn btn-ghost">Cancelar</button>
+          <button type="submit" id="btn-save-speech" class="btn btn-primary">Guardar Speech</button>
+        </div>
+      </form>
     </div>
   </div>
 

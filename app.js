@@ -7,6 +7,9 @@ const FONT_SIZE_KEY = 'quatroletras-font-size';
 const PEDAL_KEYS_KEY = 'quatroletras-pedal-keys';
 const DISPLAY_MODE_KEY = 'quatroletras-display-mode';
 const SCROLL_AMOUNTS_KEY = 'quatroletras-scroll-amounts';
+const SIMPLE_MODE_KEY = 'quatroletras-simple-mode';
+
+let isSimpleMode = localStorage.getItem(SIMPLE_MODE_KEY) === 'true';
 
 const DEFAULT_PEDAL_KEYS = {
   next: 'PageDown',
@@ -250,12 +253,29 @@ function saveSongs() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(songs));
 }
 
-function loadSetlists() {
-  try {
-    setlists = JSON.parse(localStorage.getItem(SETLISTS_KEY)) || [];
-  } catch {
-    setlists = [];
+// ── Setlist Helpers & Item Operations ──
+
+function ensureSetlistItems(sl) {
+  if (!sl) return;
+  if (!Array.isArray(sl.items) || sl.items.length === 0) {
+    const items = [{ type: 'tanda', id: crypto.randomUUID(), name: 'Tanda 1' }];
+    const songIds = Array.isArray(sl.songIds) ? sl.songIds : [];
+    songIds.forEach(songId => {
+      items.push({ type: 'song', id: crypto.randomUUID(), songId });
+    });
+    sl.items = items;
   }
+  sl.songIds = sl.items.filter(i => i.type === 'song').map(i => i.songId);
+}
+
+function loadSetlists() {
+  setlists = [];
+  try {
+    const parsed = JSON.parse(localStorage.getItem(SETLISTS_KEY));
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      setlists = parsed;
+    }
+  } catch { /* fallback */ }
 
   activeSetlistId = localStorage.getItem(ACTIVE_SETLIST_KEY);
 
@@ -267,11 +287,15 @@ function loadSetlists() {
     } catch { /* ignore */ }
 
     const id = crypto.randomUUID();
-    setlists = [{ id, name: 'Setlist 1', songIds: legacyIds }];
+    const items = [{ type: 'tanda', id: crypto.randomUUID(), name: 'Tanda 1' }];
+    legacyIds.forEach(songId => items.push({ type: 'song', id: crypto.randomUUID(), songId }));
+    setlists = [{ id, name: 'Setlist 1', songIds: legacyIds, items }];
     activeSetlistId = id;
     saveSetlists();
     localStorage.removeItem(LEGACY_SETLIST_KEY);
   }
+
+  setlists.forEach(sl => ensureSetlistItems(sl));
 
   if (!setlists.some(s => s.id === activeSetlistId)) {
     activeSetlistId = setlists[0]?.id ?? null;
@@ -279,8 +303,9 @@ function loadSetlists() {
 
   // Migración: setlist activo vacío con canciones en biblioteca
   const active = getActiveSetlist();
-  if (active && active.songIds.length === 0 && songs.length > 0 && setlists.length === 1) {
-    active.songIds = songs.map(s => s.id);
+  if (active && active.items.filter(i => i.type === 'song').length === 0 && songs.length > 0 && setlists.length === 1) {
+    songs.forEach(s => active.items.push({ type: 'song', id: crypto.randomUUID(), songId: s.id }));
+    ensureSetlistItems(active);
     saveSetlists();
   }
 
@@ -289,6 +314,7 @@ function loadSetlists() {
 }
 
 function saveSetlists() {
+  setlists.forEach(sl => ensureSetlistItems(sl));
   localStorage.setItem(SETLISTS_KEY, JSON.stringify(setlists));
   if (activeSetlistId) {
     localStorage.setItem(ACTIVE_SETLIST_KEY, activeSetlistId);
@@ -297,13 +323,19 @@ function saveSetlists() {
 
 function syncSetlistIdsFromActive() {
   const active = getActiveSetlist();
-  setlistIds = active ? [...active.songIds] : [];
+  if (active) {
+    ensureSetlistItems(active);
+    setlistIds = [...active.songIds];
+  } else {
+    setlistIds = [];
+  }
 }
 
 function persistSetlistIds() {
   const active = getActiveSetlist();
   if (active) {
-    active.songIds = [...setlistIds];
+    ensureSetlistItems(active);
+    active.songIds = active.items.filter(i => i.type === 'song').map(i => i.songId);
     saveSetlists();
   }
 }
@@ -340,7 +372,8 @@ function fontSizeToCss(size) {
 
 function createSetlist(name) {
   const id = crypto.randomUUID();
-  setlists.push({ id, name, songIds: [] });
+  const items = [{ type: 'tanda', id: crypto.randomUUID(), name: 'Tanda 1' }];
+  setlists.push({ id, name, songIds: [], items });
   activeSetlistId = id;
   syncSetlistIdsFromActive();
   saveSetlists();
@@ -397,52 +430,222 @@ function renderSetlistSelector() {
 }
 
 function pruneSetlist() {
+  const active = getActiveSetlist();
+  if (!active) return;
+  ensureSetlistItems(active);
   const valid = new Set(songs.map(s => s.id));
-  const pruned = setlistIds.filter(id => valid.has(id));
-  if (pruned.length !== setlistIds.length) {
-    setlistIds = pruned;
-    persistSetlistIds();
-  }
+  active.items = active.items.filter(i => {
+    if (i.type === 'song') return valid.has(i.songId);
+    return true;
+  });
+  persistSetlistIds();
 }
-
-// ── Setlist helpers ──
 
 function getSetlistSongs() {
+  const active = getActiveSetlist();
+  if (!active) return [];
+  ensureSetlistItems(active);
   const map = new Map(songs.map(s => [s.id, s]));
-  return setlistIds.map(id => map.get(id)).filter(Boolean);
+  return active.items
+    .filter(i => i.type === 'song')
+    .map(i => map.get(i.songId))
+    .filter(Boolean);
 }
 
-function isInSetlist(id) {
-  return setlistIds.includes(id);
+function getSetlistPlayableItems() {
+  const active = getActiveSetlist();
+  if (!active || !Array.isArray(active.items)) return [];
+  const map = new Map(songs.map(s => [s.id, s]));
+  return active.items.filter(i => {
+    if (i.type === 'song') return map.has(i.songId);
+    if (i.type === 'speech') return true;
+    return false;
+  });
 }
 
-function getSetlistIndex(id) {
-  return setlistIds.indexOf(id);
+function isInSetlist(songId) {
+  const active = getActiveSetlist();
+  if (!active || !Array.isArray(active.items)) return false;
+  return active.items.some(i => i.type === 'song' && i.songId === songId);
 }
 
-function getSongNumber(id) {
-  const idx = getSetlistIndex(id);
+function getItemIndexInSetlist(itemId) {
+  const active = getActiveSetlist();
+  if (!active || !Array.isArray(active.items)) return -1;
+  return active.items.findIndex(i => i.id === itemId || i.songId === itemId);
+}
+
+function getSongNumber(songId) {
+  const songsInSetlist = getSetlistSongs();
+  const idx = songsInSetlist.findIndex(s => s.id === songId);
   return idx >= 0 ? idx + 1 : 0;
 }
 
-function addToSetlist(id) {
-  if (!songs.some(s => s.id === id) || isInSetlist(id)) return;
-  setlistIds.push(id);
+function addToSetlist(songId) {
+  const active = getActiveSetlist();
+  if (!active) return;
+  ensureSetlistItems(active);
+  if (!songs.some(s => s.id === songId) || isInSetlist(songId)) return;
+  active.items.push({ type: 'song', id: crypto.randomUUID(), songId });
   persistSetlistIds();
   renderAll();
 }
 
-function removeFromSetlist(id) {
-  setlistIds = setlistIds.filter(x => x !== id);
+function removeFromSetlist(itemId) {
+  const active = getActiveSetlist();
+  if (!active) return;
+  active.items = active.items.filter(i => i.id !== itemId && i.songId !== itemId);
   persistSetlistIds();
   renderAll();
 }
 
 function moveSetlistItem(fromIndex, toIndex) {
-  if (fromIndex < 0 || toIndex < 0 || fromIndex >= setlistIds.length || toIndex >= setlistIds.length) return;
+  const active = getActiveSetlist();
+  if (!active || !Array.isArray(active.items)) return;
+  if (fromIndex < 0 || toIndex < 0 || fromIndex >= active.items.length || toIndex >= active.items.length) return;
   if (fromIndex === toIndex) return;
-  const [item] = setlistIds.splice(fromIndex, 1);
-  setlistIds.splice(toIndex, 0, item);
+  const [moved] = active.items.splice(fromIndex, 1);
+  active.items.splice(toIndex, 0, moved);
+  persistSetlistIds();
+  renderSetlist();
+}
+
+function addTanda() {
+  const active = getActiveSetlist();
+  if (!active) return;
+  ensureSetlistItems(active);
+  const count = active.items.filter(i => i.type === 'tanda').length;
+  active.items.push({
+    type: 'tanda',
+    id: crypto.randomUUID(),
+    name: `Tanda ${count + 1}`
+  });
+  persistSetlistIds();
+  renderSetlist();
+}
+
+function renameTanda(tandaId) {
+  const active = getActiveSetlist();
+  if (!active) return;
+  const item = active.items.find(i => i.type === 'tanda' && i.id === tandaId);
+  if (!item) return;
+  const name = prompt('Nombre de la tanda:', item.name);
+  if (!name?.trim()) return;
+  item.name = name.trim();
+  persistSetlistIds();
+  renderSetlist();
+}
+
+function deleteTanda(tandaId) {
+  const active = getActiveSetlist();
+  if (!active) return;
+  active.items = active.items.filter(i => i.id !== tandaId);
+  persistSetlistIds();
+  renderSetlist();
+}
+
+// ── Manejo de Speech ──
+let currentEditingSpeechId = null;
+
+function openSpeechModal(speechId = null) {
+  currentEditingSpeechId = speechId;
+  const speechTitleInput = document.getElementById('speech-title-input');
+  const speechDurationMin = document.getElementById('speech-duration-min');
+  const speechDurationSec = document.getElementById('speech-duration-sec');
+  const speechPlacementSelect = document.getElementById('speech-placement-select');
+  const speechTextInput = document.getElementById('speech-text-input');
+  const speechModalTitle = document.getElementById('speech-modal-title');
+
+  if (speechId) {
+    const active = getActiveSetlist();
+    const item = active?.items.find(i => i.type === 'speech' && i.id === speechId);
+    if (item) {
+      if (speechModalTitle) speechModalTitle.textContent = '✏️ Editar Speech / Discurso';
+      if (speechTitleInput) speechTitleInput.value = item.title || '';
+      if (speechDurationMin) speechDurationMin.value = item.durationMin ?? '';
+      if (speechDurationSec) speechDurationSec.value = item.durationSec ?? '';
+      if (speechPlacementSelect) speechPlacementSelect.value = item.placement || (item.standalone ? 'standalone' : 'in-tanda');
+      if (speechTextInput) speechTextInput.value = item.text || '';
+    }
+  } else {
+    if (speechModalTitle) speechModalTitle.textContent = '🎙️ Nuevo Speech / Discurso';
+    if (speechTitleInput) speechTitleInput.value = '';
+    if (speechDurationMin) speechDurationMin.value = '';
+    if (speechDurationSec) speechDurationSec.value = '';
+    if (speechPlacementSelect) speechPlacementSelect.value = 'in-tanda';
+    if (speechTextInput) speechTextInput.value = '';
+  }
+
+  document.getElementById('edit-speech-overlay')?.classList.remove('hidden');
+  speechTitleInput?.focus();
+}
+
+function closeSpeechModal() {
+  document.getElementById('edit-speech-overlay')?.classList.add('hidden');
+  currentEditingSpeechId = null;
+}
+
+function saveSpeechForm(e) {
+  e?.preventDefault();
+  const active = getActiveSetlist();
+  if (!active) return;
+
+  const titleInput = document.getElementById('speech-title-input');
+  const durationMinInput = document.getElementById('speech-duration-min');
+  const durationSecInput = document.getElementById('speech-duration-sec');
+  const placementSelect = document.getElementById('speech-placement-select');
+  const textInput = document.getElementById('speech-text-input');
+
+  const title = titleInput?.value.trim() || 'Speech sin título';
+  const durationMin = durationMinInput && durationMinInput.value !== '' ? Math.max(0, parseInt(durationMinInput.value, 10) || 0) : '';
+  const durationSec = durationSecInput && durationSecInput.value !== '' ? Math.min(59, Math.max(0, parseInt(durationSecInput.value, 10) || 0)) : '';
+  const placement = placementSelect?.value || 'in-tanda';
+  const text = textInput?.value || '';
+
+  if (currentEditingSpeechId) {
+    const item = active.items.find(i => i.type === 'speech' && i.id === currentEditingSpeechId);
+    if (item) {
+      item.title = title;
+      item.durationMin = durationMin;
+      item.durationSec = durationSec;
+      item.placement = placement;
+      item.standalone = placement === 'standalone';
+      item.text = text;
+    }
+  } else {
+    active.items.push({
+      type: 'speech',
+      id: crypto.randomUUID(),
+      title,
+      durationMin,
+      durationSec,
+      placement,
+      standalone: placement === 'standalone',
+      text
+    });
+  }
+
+  persistSetlistIds();
+  renderSetlist();
+  closeSpeechModal();
+}
+
+function toggleSpeechPlacement(speechId) {
+  const active = getActiveSetlist();
+  if (!active || !Array.isArray(active.items)) return;
+  const item = active.items.find(i => i.type === 'speech' && i.id === speechId);
+  if (!item) return;
+  const isCurrentlyStandalone = item.placement === 'standalone' || Boolean(item.standalone);
+  item.placement = isCurrentlyStandalone ? 'in-tanda' : 'standalone';
+  item.standalone = !isCurrentlyStandalone;
+  persistSetlistIds();
+  renderSetlist();
+}
+
+function deleteSpeech(speechId) {
+  const active = getActiveSetlist();
+  if (!active || !Array.isArray(active.items)) return;
+  active.items = active.items.filter(i => i.id !== speechId);
   persistSetlistIds();
   renderSetlist();
 }
@@ -525,10 +728,27 @@ function formatTotalSetlistTime(totalSec) {
   return `⏱ ${mins} min`;
 }
 
+function getSetlistTotalSeconds(sl) {
+  if (!sl || !Array.isArray(sl.items)) return 0;
+  const songMap = new Map(songs.map(s => [s.id, s]));
+  let total = 0;
+  sl.items.forEach(item => {
+    if (item.type === 'song') {
+      const song = songMap.get(item.songId);
+      if (song) total += getSongTotalSeconds(song);
+    } else if (item.type === 'speech') {
+      const m = parseInt(item.durationMin, 10) || 0;
+      const s = parseInt(item.durationSec, 10) || 0;
+      total += m * 60 + s;
+    }
+  });
+  return total;
+}
+
 function updateSetlistTotalDuration() {
   if (!setlistTotalDuration) return;
-  const setlistSongs = getSetlistSongs();
-  const totalSec = setlistSongs.reduce((sum, s) => sum + getSongTotalSeconds(s), 0);
+  const active = getActiveSetlist();
+  const totalSec = getSetlistTotalSeconds(active);
   setlistTotalDuration.textContent = formatTotalSetlistTime(totalSec);
 }
 
@@ -538,13 +758,15 @@ const ENERGY_LABELS = {
   0: 'Sin definir',
   1: 'Grado 1 (Muy baja)',
   2: 'Grado 2 (Baja)',
-  3: 'Grado 3 (Media)',
-  4: 'Grado 4 (Alta)',
-  5: 'Grado 5 (Muy alta)',
+  3: 'Grado 3 (Baja-Media)',
+  4: 'Grado 4 (Media)',
+  5: 'Grado 5 (Media-Alta)',
+  6: 'Grado 6 (Alta)',
+  7: 'Grado 7 (Muy alta)',
 };
 
 function setEditEnergy(level) {
-  currentEditEnergy = Math.max(0, Math.min(5, parseInt(level, 10) || 0));
+  currentEditEnergy = Math.max(0, Math.min(7, parseInt(level, 10) || 0));
   if (energySelector) {
     energySelector.dataset.energy = String(currentEditEnergy);
   }
@@ -557,54 +779,466 @@ function renderEnergyBadge(energy) {
   const level = parseInt(energy, 10) || 0;
   if (level <= 0) return '';
   return `
-    <div class="song-energy-badge" title="Energía: Grado ${level}/5">
+    <div class="song-energy-badge" title="Energía: Grado ${level}/7">
       <div class="energy-mini-bars" data-energy="${level}">
         <span class="mini-bar level-1"></span>
         <span class="mini-bar level-2"></span>
         <span class="mini-bar level-3"></span>
         <span class="mini-bar level-4"></span>
         <span class="mini-bar level-5"></span>
+        <span class="mini-bar level-6"></span>
+        <span class="mini-bar level-7"></span>
       </div>
-      <span class="energy-num">${level}/5</span>
+      <span class="energy-num">${level}/7</span>
     </div>
   `;
 }
 
+function updateSimpleModeUI() {
+  const btn = document.getElementById('btn-toggle-simple-mode');
+  const setlistSection = document.querySelector('.setlist-section');
+  if (setlistSection) {
+    setlistSection.classList.toggle('setlist-simple-mode', isSimpleMode);
+  }
+  if (btn) {
+    btn.classList.toggle('btn-active-toggle', isSimpleMode);
+    btn.innerHTML = isSimpleMode
+      ? '👁️ Ver Tandas'
+      : '👁️ Ocultar Tandas';
+    btn.title = isSimpleMode
+      ? 'Mostrar Tandas, Speeches, colores y gráfico'
+      : 'Ocultar Tandas, Speeches, colores y gráfico';
+  }
+}
+
+function toggleSimpleMode() {
+  isSimpleMode = !isSimpleMode;
+  localStorage.setItem(SIMPLE_MODE_KEY, String(isSimpleMode));
+  updateSimpleModeUI();
+  renderSetlist();
+}
+
 function renderSetlist() {
-  const items = getSetlistSongs();
+  updateSimpleModeUI();
+  const active = getActiveSetlist();
+  if (!active) return;
+  ensureSetlistItems(active);
+
+  const items = active.items;
   setlistList.innerHTML = '';
   setlistEmpty.classList.toggle('hidden', items.length > 0);
 
-  items.forEach((song, index) => {
-    const num = index + 1;
-    const durationText = formatSongDuration(song.durationMin, song.durationSec);
-    const artistText = song.artist?.trim() || 'Artista no especificado';
+  const songMap = new Map(songs.map(s => [s.id, s]));
+  let songCounter = 0;
+  let currentTandaIndex = -1;
+  let currentTandaName = '';
 
-    const item = document.createElement('div');
-    item.className = 'song-item';
-    item.dataset.id = song.id;
-    item.dataset.index = String(index);
-    item.innerHTML = `
-      <span class="drag-handle" draggable="true" data-id="${song.id}" aria-label="Arrastrar para reordenar" title="Arrastrar">⠿</span>
-      <span class="song-number">${num}</span>
-      <div class="song-item-info">
-        <div class="song-item-title">
-          ${escapeHtml(song.title)}
-          ${song.hasAudio ? '<span class="in-setlist-badge" style="background: rgba(59, 130, 246, 0.15); color: #60a5fa;">🎵 Audio</span>' : ''}
+  items.forEach((item, index) => {
+    if (item.type === 'tanda') {
+      currentTandaIndex++;
+      currentTandaName = item.name || `Tanda ${currentTandaIndex + 1}`;
+      const colorClass = `tanda-color-${(currentTandaIndex % 7) + 1}`;
+
+      let tandaSongCount = 0;
+      let tandaTotalSec = 0;
+      for (let j = index + 1; j < items.length; j++) {
+        const nextItem = items[j];
+        if (nextItem.type === 'tanda') break;
+        if (nextItem.type === 'song') {
+          tandaSongCount++;
+          const song = songMap.get(nextItem.songId);
+          if (song) tandaTotalSec += getSongTotalSeconds(song);
+        } else if (nextItem.type === 'speech') {
+          const isStandalone = nextItem.placement === 'standalone' || Boolean(nextItem.standalone);
+          if (!isStandalone) {
+            const m = parseInt(nextItem.durationMin, 10) || 0;
+            const s = parseInt(nextItem.durationSec, 10) || 0;
+            tandaTotalSec += m * 60 + s;
+          }
+        }
+      }
+
+      const tandaEl = document.createElement('div');
+      tandaEl.className = `tanda-divider ${colorClass}`;
+      tandaEl.draggable = true;
+      tandaEl.dataset.id = item.id;
+      tandaEl.dataset.index = String(index);
+      tandaEl.innerHTML = `
+        <span class="drag-handle" data-id="${item.id}" aria-label="Arrastrar tanda" title="Arrastrar para mover">⠿</span>
+        <div class="tanda-info">
+          <span class="tanda-title">🏷️ ${escapeHtml(currentTandaName)}</span>
+          <span class="tanda-badge">${tandaSongCount} canción${tandaSongCount === 1 ? '' : 'es'} — ${formatTotalSetlistTime(tandaTotalSec)}</span>
         </div>
-        <div class="song-item-artist">${escapeHtml(artistText)}</div>
-      </div>
-      ${durationText ? `<span class="song-duration-badge">⏱ ${durationText}</span>` : ''}
-      ${renderEnergyBadge(song.energy)}
-      <div class="song-item-actions">
-        <button type="button" class="btn btn-ghost btn-icon" data-action="remove" data-id="${song.id}" aria-label="Quitar del setlist" title="Quitar del setlist">−</button>
-        <button type="button" class="btn btn-primary btn-icon" data-action="show" data-id="${song.id}" aria-label="Mostrar">▶</button>
-      </div>
-    `;
-    setlistList.appendChild(item);
+        <div class="tanda-actions">
+          <button type="button" class="btn btn-ghost btn-icon" data-action="rename-tanda" data-id="${item.id}" aria-label="Renombrar tanda" title="Renombrar tanda">✎</button>
+          <button type="button" class="btn btn-ghost btn-icon" data-action="delete-tanda" data-id="${item.id}" aria-label="Eliminar tanda" title="Eliminar tanda">🗑</button>
+        </div>
+      `;
+      setlistList.appendChild(tandaEl);
+    } else if (item.type === 'speech') {
+      const durText = formatSongDuration(item.durationMin, item.durationSec);
+      const isStandalone = item.placement === 'standalone' || Boolean(item.standalone);
+      const colorClass = (!isStandalone && currentTandaIndex >= 0) ? `tanda-color-${(currentTandaIndex % 7) + 1}` : '';
+      const standaloneClass = isStandalone ? 'speech-standalone' : '';
+
+      const speechEl = document.createElement('div');
+      speechEl.className = `speech-item ${colorClass} ${standaloneClass}`.trim();
+      speechEl.draggable = true;
+      speechEl.dataset.id = item.id;
+      speechEl.dataset.index = String(index);
+
+      const placementBadgeHtml = isStandalone
+        ? `<span class="speech-placement-badge" data-action="toggle-speech-placement" data-id="${item.id}" title="Haz clic para asignarlo a la Tanda actual">🎙️ Entre Tandas</span>`
+        : (currentTandaName
+            ? `<span class="tanda-pill-badge" data-action="toggle-speech-placement" data-id="${item.id}" title="Haz clic para cambiarlo a Entre Tandas">🏷️ ${escapeHtml(currentTandaName)}</span>`
+            : `<span class="speech-placement-badge" data-action="toggle-speech-placement" data-id="${item.id}" title="Haz clic para asignarlo a la Tanda actual">🎙️ Entre Tandas</span>`);
+
+      speechEl.innerHTML = `
+        <span class="drag-handle" data-id="${item.id}" aria-label="Arrastrar speech" title="Arrastrar para mover">⠿</span>
+        <div class="speech-icon-badge">🎙️</div>
+        <div class="speech-info">
+          <div class="speech-title">
+            ${escapeHtml(item.title || 'Speech')}
+            ${placementBadgeHtml}
+          </div>
+          <div class="speech-preview">${escapeHtml(item.text?.trim() || 'Sin notas escritas')}</div>
+        </div>
+        ${durText ? `<span class="speech-duration-badge">⏱ ${durText}</span>` : ''}
+        <div class="song-item-actions">
+          <button type="button" class="btn btn-ghost btn-icon" data-action="edit-speech" data-id="${item.id}" aria-label="Editar Speech" title="Editar Speech">✎</button>
+          <button type="button" class="btn btn-ghost btn-icon" data-action="remove-speech" data-id="${item.id}" aria-label="Quitar Speech" title="Quitar Speech">−</button>
+          <button type="button" class="btn btn-primary btn-icon" data-action="show-speech" data-id="${item.id}" aria-label="Mostrar Speech" title="Mostrar Speech">▶</button>
+        </div>
+      `;
+      setlistList.appendChild(speechEl);
+    } else if (item.type === 'song') {
+      const song = songMap.get(item.songId);
+      if (!song) return;
+      songCounter++;
+      const durationText = formatSongDuration(song.durationMin, song.durationSec);
+      const artistText = song.artist?.trim() || 'Artista no especificado';
+      const colorClass = currentTandaIndex >= 0 ? `tanda-color-${(currentTandaIndex % 7) + 1}` : '';
+
+      const songEl = document.createElement('div');
+      songEl.className = `song-item ${colorClass}`.trim();
+      songEl.draggable = true;
+      songEl.dataset.id = item.id;
+      songEl.dataset.songId = song.id;
+      songEl.dataset.index = String(index);
+      songEl.innerHTML = `
+        <span class="drag-handle" data-id="${item.id}" aria-label="Arrastrar para reordenar" title="Arrastrar para mover">⠿</span>
+        <span class="song-number">${songCounter}</span>
+        <div class="song-item-info">
+          <div class="song-item-title">
+            ${escapeHtml(song.title)}
+            ${currentTandaName ? `<span class="tanda-pill-badge">🏷️ ${escapeHtml(currentTandaName)}</span>` : ''}
+            ${song.hasAudio ? '<span class="in-setlist-badge" style="background: rgba(59, 130, 246, 0.15); color: #60a5fa;">🎵 Audio</span>' : ''}
+          </div>
+          <div class="song-item-artist">${escapeHtml(artistText)}</div>
+        </div>
+        ${durationText ? `<span class="song-duration-badge">⏱ ${durationText}</span>` : ''}
+        ${renderEnergyBadge(song.energy)}
+        <div class="song-item-actions">
+          <button type="button" class="btn btn-ghost btn-icon" data-action="remove" data-id="${item.id}" aria-label="Quitar del setlist" title="Quitar del setlist">−</button>
+          <button type="button" class="btn btn-primary btn-icon" data-action="show" data-id="${song.id}" aria-label="Mostrar">▶</button>
+        </div>
+      `;
+      setlistList.appendChild(songEl);
+    }
   });
 
   updateSetlistTotalDuration();
+  renderSetlistChart();
+}
+
+function getEnergyColorHex(level) {
+  const colors = {
+    1: '#38bdf8',
+    2: '#34d399',
+    3: '#4ade80',
+    4: '#facc15',
+    5: '#fb923c',
+    6: '#f87171',
+    7: '#ef4444'
+  };
+  return colors[level] || '#9ca3af';
+}
+
+function renderSetlistChart() {
+  const chartCard = document.getElementById('setlist-chart-card');
+  const svg = document.getElementById('setlist-energy-svg');
+  const structureBar = document.getElementById('setlist-structure-bar');
+  if (!chartCard || !svg || !structureBar) return;
+
+  const active = getActiveSetlist();
+  if (!active || !Array.isArray(active.items) || active.items.length === 0) {
+    chartCard.classList.add('hidden');
+    return;
+  }
+
+  chartCard.classList.remove('hidden');
+
+  const songMap = new Map(songs.map(s => [s.id, s]));
+  const items = active.items;
+
+  // 1. Elementos reproducibles y cálculo de tiempo acumulado
+  const playableItems = [];
+  let currentTandaIndex = -1;
+  let currentTandaName = 'Setlist';
+  let totalTimeSec = 0;
+
+  items.forEach(item => {
+    if (item.type === 'tanda') {
+      currentTandaIndex++;
+      currentTandaName = item.name || `Tanda ${currentTandaIndex + 1}`;
+    } else if (item.type === 'song') {
+      const song = songMap.get(item.songId);
+      const sec = song ? (getSongTotalSeconds(song) || 180) : 180;
+      totalTimeSec += sec;
+      playableItems.push({
+        type: 'song',
+        item,
+        song,
+        durationSec: sec,
+        energy: song ? (parseInt(song.energy, 10) || 0) : 0,
+        tandaIndex: currentTandaIndex,
+        tandaName: currentTandaName
+      });
+    } else if (item.type === 'speech') {
+      const m = parseInt(item.durationMin, 10) || 0;
+      const s = parseInt(item.durationSec, 10) || 0;
+      const sec = (m * 60 + s) || 120;
+      totalTimeSec += sec;
+      const isStandalone = item.placement === 'standalone' || Boolean(item.standalone);
+      playableItems.push({
+        type: 'speech',
+        item,
+        durationSec: sec,
+        energy: 0,
+        isStandalone,
+        tandaIndex: isStandalone ? -1 : currentTandaIndex,
+        tandaName: isStandalone ? 'Entre Tandas' : currentTandaName
+      });
+    }
+  });
+
+  if (playableItems.length === 0) {
+    chartCard.classList.add('hidden');
+    return;
+  }
+
+  // 2. Renderizar Barra de Estructura (Tandas y Speeches)
+  structureBar.innerHTML = '';
+  const structureBlocks = [];
+  let currentBlock = null;
+
+  items.forEach(item => {
+    if (item.type === 'tanda') {
+      const tandaIdx = structureBlocks.filter(b => b.type === 'tanda').length;
+      currentBlock = {
+        type: 'tanda',
+        id: item.id,
+        name: item.name || `Tanda ${tandaIdx + 1}`,
+        tandaIndex: tandaIdx,
+        durationSec: 0,
+        count: 0
+      };
+      structureBlocks.push(currentBlock);
+    } else if (item.type === 'speech') {
+      const isStandalone = item.placement === 'standalone' || Boolean(item.standalone);
+      const m = parseInt(item.durationMin, 10) || 0;
+      const s = parseInt(item.durationSec, 10) || 0;
+      const sec = (m * 60 + s) || 120;
+
+      if (isStandalone || !currentBlock) {
+        structureBlocks.push({
+          type: 'speech',
+          id: item.id,
+          name: item.title || 'Speech',
+          tandaIndex: -1,
+          durationSec: sec,
+          count: 1
+        });
+      } else {
+        currentBlock.durationSec += sec;
+        currentBlock.count++;
+      }
+    } else if (item.type === 'song') {
+      const song = songMap.get(item.songId);
+      const sec = song ? (getSongTotalSeconds(song) || 180) : 180;
+      if (!currentBlock) {
+        currentBlock = {
+          type: 'tanda',
+          id: 'tanda-auto',
+          name: 'Tanda 1',
+          tandaIndex: 0,
+          durationSec: 0,
+          count: 0
+        };
+        structureBlocks.push(currentBlock);
+      }
+      currentBlock.durationSec += sec;
+      currentBlock.count++;
+    }
+  });
+
+  const totalStructureSec = structureBlocks.reduce((sum, b) => sum + b.durationSec, 0) || 1;
+
+  structureBlocks.forEach(block => {
+    const pct = Math.max(6, (block.durationSec / totalStructureSec) * 100);
+    const div = document.createElement('div');
+    div.className = 'structure-block';
+    div.style.width = `${pct}%`;
+
+    if (block.type === 'tanda') {
+      const colorClass = `tanda-color-${(block.tandaIndex % 7) + 1}`;
+      div.classList.add(colorClass);
+      div.innerHTML = `🏷️ ${escapeHtml(block.name)} (${formatTotalSetlistTime(block.durationSec).replace('⏱ ', '')})`;
+      div.title = `${block.name}: ${block.count} canciones — ${formatTotalSetlistTime(block.durationSec)}`;
+    } else {
+      div.classList.add('speech-standalone');
+      div.innerHTML = `🎙️ ${escapeHtml(block.name)}`;
+      div.title = `Speech: ${block.name} (${formatSongDuration(Math.floor(block.durationSec / 60), block.durationSec % 60)})`;
+    }
+
+    div.addEventListener('click', () => {
+      const targetEl = document.querySelector(`[data-id="${block.id}"]`);
+      targetEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+
+    structureBar.appendChild(div);
+  });
+
+  // 3. Renderizar Gráfico SVG de Evolución de Energía
+  const svgWidth = 800;
+  const svgHeight = 180;
+  const paddingL = 45;
+  const paddingR = 25;
+  const paddingTop = 25;
+  const paddingB = 30;
+
+  const drawW = svgWidth - paddingL - paddingR;
+  const drawH = svgHeight - paddingTop - paddingB;
+
+  let svgHtml = `
+    <defs>
+      <linearGradient id="energy-gradient" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#ef4444" stop-opacity="0.6"/>
+        <stop offset="50%" stop-color="#3b82f6" stop-opacity="0.3"/>
+        <stop offset="100%" stop-color="#10b981" stop-opacity="0.05"/>
+      </linearGradient>
+      <linearGradient id="line-gradient" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%" stop-color="#38bdf8"/>
+        <stop offset="50%" stop-color="#a855f7"/>
+        <stop offset="100%" stop-color="#ef4444"/>
+      </linearGradient>
+    </defs>
+  `;
+
+  // Grid líneas Y (Grados 1, 3, 5, 7)
+  const gridLevels = [1, 3, 5, 7];
+  gridLevels.forEach(lvl => {
+    const y = paddingTop + drawH - ((lvl / 7) * drawH);
+    svgHtml += `
+      <line x1="${paddingL}" y1="${y}" x2="${svgWidth - paddingR}" y2="${y}" class="chart-grid-line"/>
+      <text x="${paddingL - 8}" y="${y + 4}" text-anchor="end" class="chart-grid-label">G${lvl}</text>
+    `;
+  });
+
+  // Calcular puntos X, Y
+  let currentAccumSec = 0;
+  const points = [];
+
+  playableItems.forEach((pi, idx) => {
+    const midSec = currentAccumSec + (pi.durationSec / 2);
+    currentAccumSec += pi.durationSec;
+    const pct = totalTimeSec > 0 ? (midSec / totalTimeSec) : (idx / playableItems.length);
+    const x = paddingL + (pct * drawW);
+
+    const energyVal = pi.type === 'song' ? Math.max(1, pi.energy || 1) : 1;
+    const y = paddingTop + drawH - ((energyVal / 7) * drawH);
+
+    points.push({ x, y, pi, energyVal });
+  });
+
+  // Trazo y Área de degradado
+  if (points.length > 0) {
+    let pathD = `M ${points[0].x} ${points[0].y}`;
+    let areaD = `M ${points[0].x} ${paddingTop + drawH} L ${points[0].x} ${points[0].y}`;
+
+    for (let i = 1; i < points.length; i++) {
+      const pPrev = points[i - 1];
+      const pCur = points[i];
+      const cpX1 = pPrev.x + (pCur.x - pPrev.x) / 2;
+      const cpX2 = cpX1;
+      pathD += ` C ${cpX1} ${pPrev.y}, ${cpX2} ${pCur.y}, ${pCur.x} ${pCur.y}`;
+      areaD += ` C ${cpX1} ${pPrev.y}, ${cpX2} ${pCur.y}, ${pCur.x} ${pCur.y}`;
+    }
+
+    const lastP = points[points.length - 1];
+    areaD += ` L ${lastP.x} ${paddingTop + drawH} Z`;
+
+    svgHtml += `<path d="${areaD}" class="chart-area-fill"/>`;
+    svgHtml += `<path d="${pathD}" class="chart-energy-line"/>`;
+  }
+
+  // Dibujar Nodos Puntos
+  points.forEach((pt, i) => {
+    const isSong = pt.pi.type === 'song';
+    const color = isSong ? getEnergyColorHex(pt.energyVal) : '#c084fc';
+    const radius = isSong ? 6 : 7;
+    const stroke = isSong ? '#ffffff' : '#e9d5ff';
+
+    svgHtml += `
+      <circle cx="${pt.x}" cy="${pt.y}" r="${radius}" fill="${color}" stroke="${stroke}" stroke-width="2" class="chart-point" data-point-index="${i}"/>
+    `;
+  });
+
+  svg.innerHTML = svgHtml;
+
+  // Tooltip y Scroll interactivo
+  const tooltip = document.getElementById('chart-tooltip');
+  svg.querySelectorAll('.chart-point').forEach(circle => {
+    const idx = parseInt(circle.dataset.pointIndex, 10);
+    const pt = points[idx];
+    if (!pt) return;
+
+    circle.addEventListener('mouseenter', () => {
+      if (!tooltip) return;
+      const pi = pt.pi;
+      if (pi.type === 'song') {
+        const title = pi.song?.title || 'Canción';
+        const artist = pi.song?.artist || '';
+        const dur = formatSongDuration(pi.song?.durationMin, pi.song?.durationSec);
+        tooltip.innerHTML = `
+          <strong>🎵 ${escapeHtml(title)}</strong><br>
+          <span style="color: #aaa;">${escapeHtml(artist)}</span><br>
+          <span style="color: ${getEnergyColorHex(pt.energyVal)};">⚡ Energía: Grado ${pt.energyVal}/7</span><br>
+          <span style="color: #888;">⏱ ${dur || 'Sin tiempo'} — ${escapeHtml(pi.tandaName)}</span>
+        `;
+      } else {
+        const title = pi.item?.title || 'Speech';
+        const dur = formatSongDuration(pi.item?.durationMin, pi.item?.durationSec);
+        tooltip.innerHTML = `
+          <strong>🎙️ ${escapeHtml(title)}</strong><br>
+          <span style="color: #c084fc;">🎙️ Speech / Discurso</span><br>
+          <span style="color: #888;">⏱ ${dur || 'Sin tiempo'} — ${escapeHtml(pi.tandaName)}</span>
+        `;
+      }
+      tooltip.classList.remove('hidden');
+    });
+
+    circle.addEventListener('mouseleave', () => {
+      tooltip?.classList.add('hidden');
+    });
+
+    circle.addEventListener('click', () => {
+      const targetEl = document.querySelector(`[data-id="${pt.pi.item.id}"]`);
+      targetEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      targetEl?.classList.add('drag-over');
+      setTimeout(() => targetEl?.classList.remove('drag-over'), 1200);
+    });
+  });
 }
 
 function filterAndSortSongs(songArray, search = '', artist = '', energy = '', sort = 'title-asc') {
@@ -1199,14 +1833,15 @@ function showCurrentSection() {
 
 // ── Display ──
 
-async function showSong(id, sectionIndex = 0) {
+async function showSong(id, sectionIndex = 0, startWithTitle = true) {
   const song = songs.find(s => String(s.id) === String(id));
   if (!song) return;
 
   currentDisplayId = song.id;
+  currentDisplaySpeechId = null;
   currentSections = parseSections(song.lyrics);
   currentSectionIndex = Math.min(sectionIndex, currentSections.length - 1);
-  showingTitle = true;
+  showingTitle = Boolean(startWithTitle);
 
   renderLyrics(song);
   showScreen('display');
@@ -1343,10 +1978,12 @@ function updateFullscreenButtons() {
 
 // ── Exportar / Importar ──
 
+// ── Exportar / Importar ──
+
 function buildExportData() {
   persistSetlistIds();
   return {
-    version: 2,
+    version: 3,
     app: 'quatroletras',
     exportedAt: new Date().toISOString(),
     songs: songs.map(s => ({
@@ -1356,11 +1993,18 @@ function buildExportData() {
       durationMin: s.durationMin ?? '',
       durationSec: s.durationSec ?? '',
       energy: s.energy || 0,
-      lyrics: s.lyrics
+      lyrics: s.lyrics,
+      hasAudio: Boolean(s.hasAudio)
     })),
-    setlists: setlists.map(sl => ({ id: sl.id, name: sl.name, songIds: [...sl.songIds] })),
+    setlists: setlists.map(sl => ({
+      id: sl.id,
+      name: sl.name,
+      songIds: [...sl.songIds],
+      items: Array.isArray(sl.items) ? sl.items.map(i => ({ ...i })) : []
+    })),
     activeSetlistId,
     sectionFontSizes,
+    scrollAmounts,
     setlist: [...(getActiveSetlist()?.songIds ?? setlistIds)],
   };
 }
@@ -1405,63 +2049,272 @@ function validateImportData(raw) {
     songs: validSongs,
     setlists: Array.isArray(raw.setlists)
       ? raw.setlists.filter(
-          sl => sl && typeof sl.id === 'string' && typeof sl.name === 'string' && Array.isArray(sl.songIds)
+          sl => sl && typeof sl.id === 'string' && typeof sl.name === 'string'
         )
       : null,
     setlist: Array.isArray(raw.setlist) ? raw.setlist.filter(id => typeof id === 'string') : [],
     activeSetlistId: typeof raw.activeSetlistId === 'string' ? raw.activeSetlistId : null,
     sectionFontSizes: raw.sectionFontSizes && typeof raw.sectionFontSizes === 'object' ? raw.sectionFontSizes : null,
+    scrollAmounts: raw.scrollAmounts && typeof raw.scrollAmounts === 'object' ? raw.scrollAmounts : null,
   };
 }
 
-function importLibrary(data) {
-  const songMap = new Map(songs.map(s => [s.id, s]));
-  data.songs.forEach(imported => {
-    const existing = songMap.get(imported.id);
-    if (existing) {
-      existing.title = imported.title;
-      existing.lyrics = imported.lyrics;
-    } else {
-      songs.push({ id: imported.id, title: imported.title, lyrics: imported.lyrics });
-      songMap.set(imported.id, imported);
+function normalizeStr(str) {
+  return (str || '')
+    .toString()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+function stripHtml(html) {
+  if (!html) return '';
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  return (tmp.textContent || tmp.innerText || '').replace(/\s+/g, ' ').trim();
+}
+
+function getSongConflicts(existing, imported) {
+  const diffs = [];
+
+  const exTitle = (existing.title || '').trim();
+  const impTitle = (imported.title || '').trim();
+  if (exTitle && impTitle && normalizeStr(exTitle) !== normalizeStr(impTitle)) {
+    diffs.push({ field: 'Título', oldVal: exTitle, newVal: impTitle });
+  }
+
+  const exArtist = (existing.artist || '').trim();
+  const impArtist = (imported.artist || '').trim();
+  if (exArtist && impArtist && normalizeStr(exArtist) !== normalizeStr(impArtist)) {
+    diffs.push({ field: 'Artista', oldVal: exArtist, newVal: impArtist });
+  }
+
+  const exMin = existing.durationMin !== '' && existing.durationMin !== undefined && existing.durationMin !== null ? String(existing.durationMin) : '';
+  const impMin = imported.durationMin !== '' && imported.durationMin !== undefined && imported.durationMin !== null ? String(imported.durationMin) : '';
+  const exSec = existing.durationSec !== '' && existing.durationSec !== undefined && existing.durationSec !== null ? String(existing.durationSec) : '';
+  const impSec = imported.durationSec !== '' && imported.durationSec !== undefined && imported.durationSec !== null ? String(imported.durationSec) : '';
+
+  const hasExDur = exMin !== '' || exSec !== '';
+  const hasImpDur = impMin !== '' || impSec !== '';
+
+  if (hasExDur && hasImpDur) {
+    const oldDur = formatSongDuration(exMin, exSec);
+    const newDur = formatSongDuration(impMin, impSec);
+    if (oldDur !== newDur) {
+      diffs.push({ field: 'Duración', oldVal: oldDur || 'Sin especificar', newVal: newDur || 'Sin especificar' });
     }
+  }
+
+  const exEnergy = Number(existing.energy) || 0;
+  const impEnergy = Number(imported.energy) || 0;
+  if (exEnergy > 0 && impEnergy > 0 && exEnergy !== impEnergy) {
+    diffs.push({ field: 'Energía', oldVal: `Grado ${exEnergy}/7`, newVal: `Grado ${impEnergy}/7` });
+  }
+
+  const exLyricsClean = stripHtml(existing.lyrics);
+  const impLyricsClean = stripHtml(imported.lyrics);
+  if (exLyricsClean && impLyricsClean && normalizeStr(exLyricsClean) !== normalizeStr(impLyricsClean)) {
+    diffs.push({ field: 'Letra', oldVal: 'Letra actual en biblioteca', newVal: 'Letra del archivo importado' });
+  }
+
+  return diffs;
+}
+
+function promptConflictResolution(existing, imported, conflicts) {
+  return new Promise((resolve) => {
+    const overlay = document.getElementById('import-conflict-overlay');
+    const desc = document.getElementById('conflict-description');
+    const diffBox = document.getElementById('conflict-diff-box');
+
+    const btnOverwrite = document.getElementById('btn-conflict-overwrite');
+    const btnKeep = document.getElementById('btn-conflict-keep');
+    const btnOverwriteAll = document.getElementById('btn-conflict-overwrite-all');
+
+    if (!overlay || !btnOverwrite || !btnKeep || !btnOverwriteAll) {
+      resolve('keep');
+      return;
+    }
+
+    const titleStr = existing.title || imported.title || 'Canción';
+    const artistStr = existing.artist || imported.artist || '';
+    desc.textContent = `La canción "${titleStr}" ${artistStr ? `(${artistStr})` : ''} ya existe en tu biblioteca y presenta datos distintos a los del archivo.`;
+
+    diffBox.innerHTML = '';
+    conflicts.forEach(c => {
+      const item = document.createElement('div');
+      item.className = 'conflict-diff-item';
+      item.innerHTML = `
+        <span class="conflict-field-name">${escapeHtml(c.field)}</span>
+        <span class="conflict-val-old">Biblioteca: ${escapeHtml(c.oldVal)}</span>
+        <span class="conflict-val-new">Archivo: ${escapeHtml(c.newVal)}</span>
+      `;
+      diffBox.appendChild(item);
+    });
+
+    overlay.classList.remove('hidden');
+
+    function cleanup(result) {
+      overlay.classList.add('hidden');
+      btnOverwrite.removeEventListener('click', onOverwrite);
+      btnKeep.removeEventListener('click', onKeep);
+      btnOverwriteAll.removeEventListener('click', onOverwriteAll);
+      resolve(result);
+    }
+
+    function onOverwrite(e) {
+      e.stopPropagation();
+      cleanup('overwrite');
+    }
+
+    function onKeep(e) {
+      e.stopPropagation();
+      cleanup('keep');
+    }
+
+    function onOverwriteAll(e) {
+      e.stopPropagation();
+      cleanup('overwrite-all');
+    }
+
+    btnOverwrite.addEventListener('click', onOverwrite);
+    btnKeep.addEventListener('click', onKeep);
+    btnOverwriteAll.addEventListener('click', onOverwriteAll);
   });
+}
+
+async function importLibrary(data) {
+  const idRemap = new Map();
+  let overwriteAll = false;
+
+  for (const imported of data.songs) {
+    const importedTitleNorm = normalizeStr(imported.title);
+
+    const existing = songs.find(s =>
+      (s.id && imported.id && s.id === imported.id) ||
+      (importedTitleNorm && normalizeStr(s.title) === importedTitleNorm)
+    );
+
+    if (!existing) {
+      const newSong = {
+        id: imported.id,
+        title: imported.title,
+        artist: imported.artist || '',
+        durationMin: imported.durationMin ?? '',
+        durationSec: imported.durationSec ?? '',
+        energy: imported.energy || 0,
+        lyrics: imported.lyrics,
+        hasAudio: Boolean(imported.hasAudio)
+      };
+      songs.push(newSong);
+      idRemap.set(imported.id, imported.id);
+      continue;
+    }
+
+    idRemap.set(imported.id, existing.id);
+
+    const conflicts = getSongConflicts(existing, imported);
+
+    let choice = 'keep';
+    if (conflicts.length > 0) {
+      if (overwriteAll) {
+        choice = 'overwrite';
+      } else {
+        choice = await promptConflictResolution(existing, imported, conflicts);
+        if (choice === 'overwrite-all') {
+          overwriteAll = true;
+          choice = 'overwrite';
+        }
+      }
+    }
+
+    if (choice === 'overwrite') {
+      existing.title = imported.title;
+      if (imported.artist !== undefined) existing.artist = imported.artist;
+      if (imported.durationMin !== undefined) existing.durationMin = imported.durationMin;
+      if (imported.durationSec !== undefined) existing.durationSec = imported.durationSec;
+      if (imported.energy !== undefined) existing.energy = imported.energy;
+      if (imported.lyrics !== undefined) existing.lyrics = imported.lyrics;
+      if (imported.hasAudio !== undefined) existing.hasAudio = Boolean(imported.hasAudio);
+    }
+
+    if (!existing.artist?.trim() && imported.artist?.trim()) {
+      existing.artist = imported.artist;
+    }
+    if ((existing.durationMin === '' || existing.durationMin === undefined || existing.durationMin === null) && imported.durationMin !== '' && imported.durationMin !== undefined && imported.durationMin !== null) {
+      existing.durationMin = imported.durationMin;
+    }
+    if ((existing.durationSec === '' || existing.durationSec === undefined || existing.durationSec === null) && imported.durationSec !== '' && imported.durationSec !== undefined && imported.durationSec !== null) {
+      existing.durationSec = imported.durationSec;
+    }
+    if ((!existing.energy || existing.energy === 0) && imported.energy > 0) {
+      existing.energy = imported.energy;
+    }
+    if (!stripHtml(existing.lyrics) && stripHtml(imported.lyrics)) {
+      existing.lyrics = imported.lyrics;
+    }
+    if (!existing.hasAudio && imported.hasAudio) {
+      existing.hasAudio = true;
+    }
+  }
 
   const validIds = new Set(songs.map(s => s.id));
 
   if (data.setlists?.length) {
-    data.setlists.forEach(imported => {
-      const existing = setlists.find(sl => sl.id === imported.id);
-      const songIds = imported.songIds.filter(id => validIds.has(id));
-      if (existing) {
-        existing.name = imported.name;
-        songIds.forEach(id => {
-          if (!existing.songIds.includes(id)) existing.songIds.push(id);
-        });
+    data.setlists.forEach(importedSl => {
+      const existingSl = setlists.find(sl => sl.id === importedSl.id);
+
+      const mappedSongIds = (importedSl.songIds || [])
+        .map(id => idRemap.get(id) || id)
+        .filter(id => validIds.has(id));
+
+      let mappedItems = [];
+      if (Array.isArray(importedSl.items) && importedSl.items.length > 0) {
+        mappedItems = importedSl.items.map(item => {
+          if (item.type === 'song') {
+            return { ...item, songId: idRemap.get(item.songId) || item.songId };
+          }
+          return { ...item };
+        }).filter(item => item.type !== 'song' || validIds.has(item.songId));
       } else {
-        setlists.push({ id: imported.id, name: imported.name, songIds: [...songIds] });
+        mappedItems = [{ type: 'tanda', id: crypto.randomUUID(), name: 'Tanda 1' }];
+        mappedSongIds.forEach(sId => mappedItems.push({ type: 'song', id: crypto.randomUUID(), songId: sId }));
+      }
+
+      if (existingSl) {
+        existingSl.name = importedSl.name;
+        existingSl.items = mappedItems;
+        ensureSetlistItems(existingSl);
+      } else {
+        const newSl = { id: importedSl.id, name: importedSl.name, songIds: mappedSongIds, items: mappedItems };
+        ensureSetlistItems(newSl);
+        setlists.push(newSl);
       }
     });
     if (data.activeSetlistId && setlists.some(sl => sl.id === data.activeSetlistId)) {
       activeSetlistId = data.activeSetlistId;
     }
-  } else {
-    const importedSetlist = data.setlist.filter(id => validIds.has(id));
-    importedSetlist.forEach(id => {
-      if (!setlistIds.includes(id)) setlistIds.push(id);
-    });
-    persistSetlistIds();
   }
 
   if (data.sectionFontSizes) {
     Object.entries(data.sectionFontSizes).forEach(([songId, sections]) => {
-      if (!validIds.has(songId) || typeof sections !== 'object') return;
-      if (!sectionFontSizes[songId]) sectionFontSizes[songId] = {};
+      const remappedId = idRemap.get(songId) || songId;
+      if (!validIds.has(remappedId) || typeof sections !== 'object') return;
+      if (!sectionFontSizes[remappedId]) sectionFontSizes[remappedId] = {};
       Object.entries(sections).forEach(([idx, size]) => {
-        if (typeof size === 'number') sectionFontSizes[songId][idx] = size;
+        if (typeof size === 'number') sectionFontSizes[remappedId][idx] = size;
       });
     });
     saveSectionFonts();
+  }
+
+  if (data.scrollAmounts) {
+    Object.entries(data.scrollAmounts).forEach(([songId, amount]) => {
+      const remappedId = idRemap.get(songId) || songId;
+      if (!validIds.has(remappedId) || typeof amount !== 'number') return;
+      scrollAmounts[remappedId] = amount;
+    });
+    saveScrollAmounts();
   }
 
   syncSetlistIdsFromActive();
@@ -1506,11 +2359,49 @@ function cancelAndReturnToLastSection() {
 
 // ── Pedal navigation ──
 
-function pedalNext() {
-  if (isAudioWarningOpen()) {
-    confirmContinueNextSong();
-    return;
+let currentDisplaySpeechId = null;
+
+function showSpeech(speechId) {
+  const active = getActiveSetlist();
+  if (!active || !Array.isArray(active.items)) return;
+  const speech = active.items.find(i => i.type === 'speech' && String(i.id) === String(speechId));
+  if (!speech) return;
+
+  currentDisplayId = null;
+  currentDisplaySpeechId = speech.id;
+  stopAudioPlayer();
+
+  displayContent.innerHTML = '';
+  displayContent.classList.remove('continuous-mode');
+
+  const durStr = formatSongDuration(speech.durationMin, speech.durationSec);
+
+  const slide = document.createElement('div');
+  slide.className = 'speech-slide active';
+  slide.innerHTML = `
+    <div class="speech-slide-header">🎙️ SPEECH / DISCURSO</div>
+    <div class="speech-slide-title">${escapeHtml(speech.title)}</div>
+    ${durStr ? `<div class="speech-slide-duration">⏱ Duración estimada: ${durStr} min</div>` : ''}
+    ${speech.text?.trim() ? `<div class="speech-slide-text">${escapeHtml(speech.text.trim())}</div>` : ''}
+  `;
+
+  displayContent.appendChild(slide);
+  if (displayTitleBar) {
+    displayTitleBar.textContent = '';
+    displayTitleBar.classList.remove('visible');
   }
+  if (sectionIndicator) {
+    sectionIndicator.textContent = 'SPEECH';
+    sectionIndicator.classList.add('visible');
+  }
+  if (scrollMenuSection) scrollMenuSection.classList.add('hidden');
+  if (scrollControlsPanel) scrollControlsPanel.classList.add('hidden');
+
+  showScreen('display');
+}
+
+function pedalNext() {
+  if (isAudioWarningOpen()) return;
 
   if (isPickerOpen()) {
     pickerNavigate(1);
@@ -1518,6 +2409,11 @@ function pedalNext() {
   }
 
   if (!screens.display.classList.contains('active')) return;
+
+  if (currentDisplaySpeechId) {
+    goToNextSong();
+    return;
+  }
 
   if (showingTitle) {
     showingTitle = false;
@@ -1546,15 +2442,16 @@ function pedalBack() {
   }
 
   if (isPickerOpen()) {
-    if (pickerIndex <= 0) {
-      closePicker();
-      return;
-    }
     pickerNavigate(-1);
     return;
   }
 
   if (!screens.display.classList.contains('active')) return;
+
+  if (currentDisplaySpeechId) {
+    openPicker();
+    return;
+  }
 
   if (showingTitle) {
     openPicker();
@@ -1577,8 +2474,8 @@ function pedalBack() {
 }
 
 function goToNextSong(force = false) {
-  const setlist = getSetlistSongs();
-  if (setlist.length <= 1) return;
+  const playable = getSetlistPlayableItems();
+  if (playable.length <= 1) return;
 
   const isAudioStarted = activeAudio && (!activeAudio.paused || activeAudio.currentTime > 0.5);
 
@@ -1587,9 +2484,22 @@ function goToNextSong(force = false) {
     return;
   }
 
-  const idx = getSetlistIndex(currentDisplayId);
-  const nextIdx = idx >= 0 && idx < setlist.length - 1 ? idx + 1 : 0;
-  showSong(setlist[nextIdx].id, 0);
+  let curIdx = -1;
+  if (currentDisplayId) {
+    curIdx = playable.findIndex(i => i.type === 'song' && i.songId === currentDisplayId);
+  } else if (currentDisplaySpeechId) {
+    curIdx = playable.findIndex(i => i.type === 'speech' && i.id === currentDisplaySpeechId);
+  }
+
+  const nextIdx = curIdx >= 0 && curIdx < playable.length - 1 ? curIdx + 1 : 0;
+  const nextItem = playable[nextIdx];
+  if (!nextItem) return;
+
+  if (nextItem.type === 'song') {
+    showSong(nextItem.songId, 0);
+  } else if (nextItem.type === 'speech') {
+    showSpeech(nextItem.id);
+  }
 }
 
 function keyLabel(key) {
@@ -1674,23 +2584,50 @@ function renderPickerHighlight() {
 }
 
 function openPicker() {
-  const setlist = getSetlistSongs();
-  if (setlist.length === 0) return;
-  pickerIndex = Math.max(0, getSetlistIndex(currentDisplayId));
+  const playable = getSetlistPlayableItems();
+  if (playable.length === 0) return;
+
+  let currentIdx = 0;
+  if (currentDisplayId) {
+    currentIdx = playable.findIndex(i => i.type === 'song' && i.songId === currentDisplayId);
+  } else if (currentDisplaySpeechId) {
+    currentIdx = playable.findIndex(i => i.type === 'speech' && i.id === currentDisplaySpeechId);
+  }
+  pickerIndex = Math.max(0, currentIdx);
   pickerList.innerHTML = '';
 
-  setlist.forEach((song, i) => {
+  const songMap = new Map(songs.map(s => [s.id, s]));
+  let songCounter = 0;
+
+  playable.forEach((item, i) => {
     const btn = document.createElement('button');
     btn.className = 'picker-item' + (i === pickerIndex ? ' active' : '');
-    btn.innerHTML = `
-      <span class="picker-item-num">${i + 1}</span>
-      <span class="picker-item-title">${escapeHtml(song.title)}</span>
-    `;
-    btn.addEventListener('click', () => {
-      pickerIndex = i;
-      showSong(song.id, 0);
-      closePicker();
-    });
+
+    if (item.type === 'song') {
+      const song = songMap.get(item.songId);
+      if (!song) return;
+      songCounter++;
+      btn.innerHTML = `
+        <span class="picker-item-num">${songCounter}</span>
+        <span class="picker-item-title">${escapeHtml(song.title)}</span>
+      `;
+      btn.addEventListener('click', () => {
+        pickerIndex = i;
+        closePicker();
+        showSong(song.id, 0, false);
+      });
+    } else if (item.type === 'speech') {
+      btn.innerHTML = `
+        <span class="picker-item-num" style="color: #c084fc;">🎙️</span>
+        <span class="picker-item-title" style="color: #e9d5ff;">${escapeHtml(item.title || 'Speech')}</span>
+      `;
+      btn.addEventListener('click', () => {
+        pickerIndex = i;
+        closePicker();
+        showSpeech(item.id);
+      });
+    }
+
     pickerList.appendChild(btn);
   });
 
@@ -1703,11 +2640,18 @@ function closePicker() {
 }
 
 function pickerNavigate(delta) {
-  const setlist = getSetlistSongs();
-  if (setlist.length === 0) return;
-  pickerIndex = (pickerIndex + delta + setlist.length) % setlist.length;
+  const playable = getSetlistPlayableItems();
+  if (playable.length === 0) return;
+  pickerIndex = (pickerIndex + delta + playable.length) % playable.length;
   renderPickerHighlight();
-  showSong(setlist[pickerIndex].id, 0);
+
+  const item = playable[pickerIndex];
+  if (!item) return;
+  if (item.type === 'song') {
+    showSong(item.songId, 0, false);
+  } else if (item.type === 'speech') {
+    showSpeech(item.id);
+  }
 }
 
 // ── Event listeners ──
@@ -1724,7 +2668,18 @@ addSetlistSort?.addEventListener('change', renderAddSetlistList);
 
 document.getElementById('btn-new-song').addEventListener('click', openNewSong);
 document.getElementById('btn-add-to-setlist').addEventListener('click', openAddSetlistOverlay);
+document.getElementById('btn-add-tanda')?.addEventListener('click', addTanda);
+document.getElementById('btn-add-speech')?.addEventListener('click', () => openSpeechModal());
 document.getElementById('btn-close-add-setlist').addEventListener('click', closeAddSetlistOverlay);
+
+// Speech modal listeners
+document.getElementById('speech-form')?.addEventListener('submit', saveSpeechForm);
+document.getElementById('btn-close-speech')?.addEventListener('click', closeSpeechModal);
+document.getElementById('btn-cancel-speech')?.addEventListener('click', closeSpeechModal);
+document.getElementById('edit-speech-overlay')?.addEventListener('click', e => {
+  if (e.target === document.getElementById('edit-speech-overlay')) closeSpeechModal();
+});
+
 document.getElementById('btn-new-setlist')?.addEventListener('click', () => {
   const name = prompt('Nombre del nuevo setlist:', `Setlist ${setlists.length + 1}`);
   if (!name?.trim()) return;
@@ -1822,6 +2777,20 @@ btnScrollDownMenu?.addEventListener('click', e => {
   adjustScrollAmount(-SCROLL_AMOUNT_STEP);
 });
 
+document.getElementById('btn-toggle-simple-mode')?.addEventListener('click', toggleSimpleMode);
+
+document.getElementById('btn-toggle-chart')?.addEventListener('click', () => {
+  const wrapper = document.getElementById('setlist-chart-wrapper');
+  const btn = document.getElementById('btn-toggle-chart');
+  if (!wrapper) return;
+  const isCollapsed = wrapper.classList.toggle('collapsed');
+  if (btn) {
+    btn.innerHTML = isCollapsed
+      ? '<span id="chart-toggle-text">Mostrar gráfico</span> ▼'
+      : '<span id="chart-toggle-text">Ocultar gráfico</span> ▲';
+  }
+});
+
 editMenu?.addEventListener('click', e => {
   e.stopPropagation();
   editMenu.classList.add('visible');
@@ -1897,7 +2866,7 @@ importFileInput?.addEventListener('change', async e => {
     const data = validateImportData(raw);
     const msg = `¿Importar ${data.songs.length} canción${data.songs.length === 1 ? '' : 'es'}? Se fusionarán con la biblioteca actual y se añadirán al setlist las que falten.`;
     if (!confirm(msg)) return;
-    importLibrary(data);
+    await importLibrary(data);
   } catch (err) {
     alert(err.message || 'No se pudo importar el archivo.');
   }
@@ -1945,77 +2914,108 @@ addSetlistOverlay.addEventListener('click', e => {
 
 // ── Reordenar setlist ──
 
+// ── Reordenar setlist ──
+
 let dragSongId = null;
-const pointerDrag = { id: null, active: false };
+let touchDragId = null;
 
 function clearDragState() {
   dragSongId = null;
-  pointerDrag.id = null;
-  pointerDrag.active = false;
-  setlistList.querySelectorAll('.song-item').forEach(el => {
+  touchDragId = null;
+  setlistList.querySelectorAll('.song-item, .speech-item, .tanda-divider').forEach(el => {
     el.classList.remove('dragging', 'drag-over');
   });
 }
 
 function setDragOverItem(item) {
-  setlistList.querySelectorAll('.song-item').forEach(el => {
-    el.classList.toggle('drag-over', item && el === item);
+  setlistList.querySelectorAll('.song-item, .speech-item, .tanda-divider').forEach(el => {
+    el.classList.toggle('drag-over', Boolean(item && el === item));
   });
 }
 
+// Drag & drop nativo HTML5 (Mouse y navegadores estándar)
 setlistList.addEventListener('dragstart', e => {
-  const handle = e.target.closest('.drag-handle');
-  if (!handle) return;
-  dragSongId = handle.dataset.id;
-  handle.closest('.song-item')?.classList.add('dragging');
-  e.dataTransfer.effectAllowed = 'move';
-  e.dataTransfer.setData('text/plain', dragSongId);
+  const item = e.target.closest('.song-item, .speech-item, .tanda-divider');
+  if (!item || !item.dataset.id) return;
+  dragSongId = item.dataset.id;
+  item.classList.add('dragging');
+  if (e.dataTransfer) {
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', dragSongId);
+  }
 });
 
 setlistList.addEventListener('dragend', clearDragState);
 
 setlistList.addEventListener('dragover', e => {
   e.preventDefault();
-  const item = e.target.closest('.song-item');
-  if (!item || item.dataset.id === dragSongId) return;
-  setDragOverItem(item);
+  if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+  const item = e.target.closest('.song-item, .speech-item, .tanda-divider');
+  if (item && item.dataset.id !== dragSongId) {
+    setDragOverItem(item);
+  }
+});
+
+setlistList.addEventListener('dragleave', e => {
+  const item = e.target.closest('.song-item, .speech-item, .tanda-divider');
+  if (item && item === e.target) {
+    item.classList.remove('drag-over');
+  }
 });
 
 setlistList.addEventListener('drop', e => {
   e.preventDefault();
-  const item = e.target.closest('.song-item');
-  if (!item || !dragSongId) return;
-  moveSetlistItem(getSetlistIndex(dragSongId), getSetlistIndex(item.dataset.id));
-  clearDragState();
-});
-
-setlistList.addEventListener('pointerdown', e => {
-  const handle = e.target.closest('.drag-handle');
-  if (!handle || e.pointerType === 'mouse') return;
-  pointerDrag.id = handle.dataset.id;
-  pointerDrag.active = true;
-  handle.setPointerCapture(e.pointerId);
-  handle.closest('.song-item')?.classList.add('dragging');
-});
-
-setlistList.addEventListener('pointermove', e => {
-  if (!pointerDrag.active) return;
-  const el = document.elementFromPoint(e.clientX, e.clientY);
-  const item = el?.closest('.song-item');
-  setDragOverItem(item && item.dataset.id !== pointerDrag.id ? item : null);
-});
-
-setlistList.addEventListener('pointerup', e => {
-  if (!pointerDrag.active) return;
-  const el = document.elementFromPoint(e.clientX, e.clientY);
-  const item = el?.closest('.song-item');
-  if (item && item.dataset.id !== pointerDrag.id) {
-    moveSetlistItem(getSetlistIndex(pointerDrag.id), getSetlistIndex(item.dataset.id));
+  e.stopPropagation();
+  const item = e.target.closest('.song-item, .speech-item, .tanda-divider');
+  if (!item || !dragSongId || item.dataset.id === dragSongId) {
+    clearDragState();
+    return;
+  }
+  const fromIdx = getItemIndexInSetlist(dragSongId);
+  const toIdx = getItemIndexInSetlist(item.dataset.id);
+  if (fromIdx >= 0 && toIdx >= 0) {
+    moveSetlistItem(fromIdx, toIdx);
   }
   clearDragState();
 });
 
-setlistList.addEventListener('pointercancel', clearDragState);
+// Soporte táctil (Touch events para tablets y móviles)
+setlistList.addEventListener('touchstart', e => {
+  const handle = e.target.closest('.drag-handle');
+  if (!handle) return;
+  const item = handle.closest('.song-item, .speech-item, .tanda-divider');
+  if (!item || !item.dataset.id) return;
+  touchDragId = item.dataset.id;
+  item.classList.add('dragging');
+}, { passive: true });
+
+setlistList.addEventListener('touchmove', e => {
+  if (!touchDragId) return;
+  const touch = e.touches[0];
+  if (!touch) return;
+  const el = document.elementFromPoint(touch.clientX, touch.clientY);
+  const item = el?.closest('.song-item, .speech-item, .tanda-divider');
+  setDragOverItem(item && item.dataset.id !== touchDragId ? item : null);
+}, { passive: true });
+
+setlistList.addEventListener('touchend', e => {
+  if (!touchDragId) return;
+  const touch = e.changedTouches[0];
+  if (touch) {
+    const el = document.elementFromPoint(touch.clientX, touch.clientY);
+    const item = el?.closest('.song-item, .speech-item, .tanda-divider');
+    if (item && item.dataset.id !== touchDragId) {
+      const fromIdx = getItemIndexInSetlist(touchDragId);
+      const toIdx = getItemIndexInSetlist(item.dataset.id);
+      if (fromIdx >= 0 && toIdx >= 0) {
+        moveSetlistItem(fromIdx, toIdx);
+      }
+    }
+  }
+  clearDragState();
+});
+
+setlistList.addEventListener('touchcancel', clearDragState);
 
 setlistList.addEventListener('click', e => {
   const btn = e.target.closest('[data-action]');
@@ -2030,12 +3030,28 @@ setlistList.addEventListener('click', e => {
       removeFromSetlist(id);
       return;
     }
-    if (action === 'up') {
-      moveSetlistById(id, -1);
+    if (action === 'rename-tanda') {
+      renameTanda(id);
       return;
     }
-    if (action === 'down') {
-      moveSetlistById(id, 1);
+    if (action === 'delete-tanda') {
+      deleteTanda(id);
+      return;
+    }
+    if (action === 'edit-speech') {
+      openSpeechModal(id);
+      return;
+    }
+    if (action === 'remove-speech') {
+      deleteSpeech(id);
+      return;
+    }
+    if (action === 'show-speech') {
+      showSpeech(id);
+      return;
+    }
+    if (action === 'toggle-speech-placement') {
+      toggleSpeechPlacement(id);
       return;
     }
   }
@@ -2043,8 +3059,13 @@ setlistList.addEventListener('click', e => {
   if (e.target.closest('.drag-handle')) return;
 
   const item = e.target.closest('.song-item');
-  if (item && item.dataset.id) {
-    showSong(item.dataset.id);
+  if (item && item.dataset.songId) {
+    showSong(item.dataset.songId);
+    return;
+  }
+  const speechItem = e.target.closest('.speech-item');
+  if (speechItem && speechItem.dataset.id) {
+    showSpeech(speechItem.dataset.id);
   }
 });
 
@@ -2203,6 +3224,31 @@ if ('serviceWorker' in navigator) {
   });
 }
 
+// ── Navegación por Pestañas ──
+const TAB_KEY = 'quatroletras-active-tab';
+const manageNavTabs = document.getElementById('manage-nav-tabs');
+const manageMain = document.querySelector('.manage-main');
+
+function setActiveTab(tabName) {
+  const validTabs = ['all', 'setlist', 'library', 'settings'];
+  const activeTab = validTabs.includes(tabName) ? tabName : 'all';
+  localStorage.setItem(TAB_KEY, activeTab);
+  if (manageMain) {
+    manageMain.dataset.tab = activeTab;
+  }
+  if (manageNavTabs) {
+    manageNavTabs.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.tab === activeTab);
+    });
+  }
+}
+
+manageNavTabs?.addEventListener('click', e => {
+  const btn = e.target.closest('.tab-btn');
+  if (!btn || !btn.dataset.tab) return;
+  setActiveTab(btn.dataset.tab);
+});
+
 // ── Init ──
 loadSongs();
 loadSetlists();
@@ -2213,3 +3259,5 @@ renderAll();
 updatePedalKeyButtons();
 updateModeButton();
 updateFullscreenButtons();
+setActiveTab(localStorage.getItem(TAB_KEY) || 'all');
+
