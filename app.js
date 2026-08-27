@@ -1512,11 +1512,21 @@ function closeAddSetlistOverlay() {
   addSetlistOverlay.classList.add('hidden');
 }
 
-// ── Edit Audio State ──
+// ── Edit Audio & Alignment State ──
 let currentEditAudioBlob = null;
 let currentEditAudioName = null;
 let audioMarkedForDeletion = false;
 let editPreviewObjectUrl = null;
+let currentEditAlignment = 'left';
+
+function setEditAlignment(align) {
+  const val = align === 'center' ? 'center' : 'left';
+  currentEditAlignment = val;
+  const songAlignmentSelect = document.getElementById('song-alignment');
+  if (songAlignmentSelect) songAlignmentSelect.value = val;
+  document.getElementById('btn-align-left')?.classList.toggle('active', val === 'left');
+  document.getElementById('btn-align-center')?.classList.toggle('active', val === 'center');
+}
 
 function clearEditAudioPreview() {
   if (editPreviewObjectUrl) {
@@ -1550,6 +1560,7 @@ async function openNewSong() {
   if (songDurationMin) songDurationMin.value = '';
   if (songDurationSec) songDurationSec.value = '';
   setEditEnergy(0);
+  setEditAlignment('left');
   setSongLyricsValue('');
   resetEditAudioState();
   btnDelete.classList.add('hidden');
@@ -1567,6 +1578,7 @@ async function openEditSong(id) {
   if (songDurationMin) songDurationMin.value = song.durationMin ?? '';
   if (songDurationSec) songDurationSec.value = song.durationSec ?? '';
   setEditEnergy(song.energy || 0);
+  setEditAlignment(song.alignment || 'left');
   setSongLyricsValue(song.lyrics);
   btnDelete.classList.remove('hidden');
 
@@ -1591,6 +1603,7 @@ async function saveSong() {
   const durationMin = songDurationMin && songDurationMin.value !== '' ? Math.max(0, parseInt(songDurationMin.value, 10) || 0) : '';
   const durationSec = songDurationSec && songDurationSec.value !== '' ? Math.min(59, Math.max(0, parseInt(songDurationSec.value, 10) || 0)) : '';
   const energy = currentEditEnergy;
+  const alignment = currentEditAlignment || 'left';
   const lyrics = getSongLyricsValue();
 
   if (!title) {
@@ -1612,6 +1625,7 @@ async function saveSong() {
       song.durationMin = durationMin;
       song.durationSec = durationSec;
       song.energy = energy;
+      song.alignment = alignment;
       song.lyrics = lyrics;
       if (currentEditAudioBlob) {
         await saveSongAudio(editingId, currentEditAudioBlob, currentEditAudioName);
@@ -1628,7 +1642,7 @@ async function saveSong() {
       await saveSongAudio(songId, currentEditAudioBlob, currentEditAudioName);
       hasAudio = true;
     }
-    songs.push({ id: songId, title, artist, durationMin, durationSec, energy, lyrics, hasAudio });
+    songs.push({ id: songId, title, artist, durationMin, durationSec, energy, alignment, lyrics, hasAudio });
     setlistIds.push(songId);
     persistSetlistIds();
   }
@@ -1856,9 +1870,12 @@ async function showSong(id, sectionIndex = 0, startWithTitle = true) {
 function renderLyrics(song) {
   displayContent.innerHTML = '';
   displayContent.classList.toggle('continuous-mode', displayMode === DISPLAY_MODES.CONTINUOUS);
+  const alignment = song.alignment || 'left';
+  displayContent.classList.toggle('align-center', alignment === 'center');
+  displayContent.classList.toggle('align-left', alignment !== 'center');
   
   const block = document.createElement('div');
-  block.className = 'lyrics-block';
+  block.className = `lyrics-block align-${alignment}`;
 
   const titleSlide = document.createElement('div');
   titleSlide.className = 'song-title-slide' + (showingTitle ? ' active' : '');
@@ -2203,6 +2220,7 @@ async function importLibrary(data) {
         durationMin: imported.durationMin ?? '',
         durationSec: imported.durationSec ?? '',
         energy: imported.energy || 0,
+        alignment: imported.alignment || 'left',
         lyrics: imported.lyrics,
         hasAudio: Boolean(imported.hasAudio)
       };
@@ -2234,6 +2252,7 @@ async function importLibrary(data) {
       if (imported.durationMin !== undefined) existing.durationMin = imported.durationMin;
       if (imported.durationSec !== undefined) existing.durationSec = imported.durationSec;
       if (imported.energy !== undefined) existing.energy = imported.energy;
+      if (imported.alignment !== undefined) existing.alignment = imported.alignment;
       if (imported.lyrics !== undefined) existing.lyrics = imported.lyrics;
       if (imported.hasAudio !== undefined) existing.hasAudio = Boolean(imported.hasAudio);
     }
@@ -2671,6 +2690,16 @@ document.getElementById('btn-add-to-setlist').addEventListener('click', openAddS
 document.getElementById('btn-add-tanda')?.addEventListener('click', addTanda);
 document.getElementById('btn-add-speech')?.addEventListener('click', () => openSpeechModal());
 document.getElementById('btn-close-add-setlist').addEventListener('click', closeAddSetlistOverlay);
+
+document.getElementById('song-alignment')?.addEventListener('change', e => {
+  setEditAlignment(e.target.value);
+});
+document.getElementById('btn-align-left')?.addEventListener('click', () => {
+  setEditAlignment('left');
+});
+document.getElementById('btn-align-center')?.addEventListener('click', () => {
+  setEditAlignment('center');
+});
 
 // Speech modal listeners
 document.getElementById('speech-form')?.addEventListener('submit', saveSpeechForm);

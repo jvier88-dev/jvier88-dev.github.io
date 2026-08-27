@@ -1046,8 +1046,8 @@ body {
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
-  align-items: center;
-  text-align: center;
+  align-items: flex-start;
+  text-align: left;
 }
 
 .display-content.continuous-mode {
@@ -1063,11 +1063,44 @@ body {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  align-items: center;
+  align-items: flex-start;
+  text-align: left;
 }
 
 .display-content.continuous-mode .lyrics-block {
-  margin: 0 auto;
+  margin: 0;
+}
+
+/* Alineación de Letras (Por defecto: Izquierda | Opción: Centrado) */
+.lyrics-block.align-left,
+.display-content.align-left {
+  align-items: flex-start !important;
+  text-align: left !important;
+}
+
+.lyrics-block.align-left .lyrics-section,
+.lyrics-block.align-left .lyrics-line {
+  align-items: flex-start !important;
+  text-align: left !important;
+}
+
+.lyrics-block.align-center,
+.display-content.align-center {
+  align-items: center !important;
+  text-align: center !important;
+}
+
+.lyrics-block.align-center .lyrics-section,
+.lyrics-block.align-center .lyrics-line {
+  align-items: center !important;
+  text-align: center !important;
+}
+
+.alignment-toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  margin-left: auto;
 }
 
 .lyrics-line {
@@ -1088,9 +1121,10 @@ body {
 .lyrics-section {
   display: none;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   width: 100%;
+  text-align: left;
 }
 
 .lyrics-section.active {
@@ -2470,11 +2504,13 @@ body {
   filter: brightness(1.25);
 }
 
-/* ── Modo Vista Simple (Ocultar Tandas, Speeches y Gráfico) ── */
+/* ── Modo Vista Simple (Ocultar Tandas, Speeches, Gráfico y Botones +Tanda / +Speech) ── */
 .setlist-simple-mode .setlist-chart-card,
 .setlist-simple-mode .tanda-divider,
 .setlist-simple-mode .speech-item,
-.setlist-simple-mode .tanda-pill-badge {
+.setlist-simple-mode .tanda-pill-badge,
+.setlist-simple-mode #btn-add-tanda,
+.setlist-simple-mode #btn-add-speech {
   display: none !important;
 }
 

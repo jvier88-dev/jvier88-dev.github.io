@@ -214,6 +214,13 @@
             </div>
           </div>
         </div>
+        <label class="field">
+          <span>Alineación de la letra</span>
+          <select id="song-alignment" class="form-select">
+            <option value="left">⬅️ Izquierda (Por defecto)</option>
+            <option value="center">↔️ Centrado</option>
+          </select>
+        </label>
         <button id="btn-delete" class="btn btn-danger hidden">Eliminar canción</button>
       </div>
       <div class="field field-lyrics">
@@ -234,6 +241,10 @@
                 <button type="button" class="color-swatch" data-color="#ffffff" style="background: #ffffff;" title="Blanco"></button>
                 <input type="color" id="custom-color-input" class="color-picker-custom" value="#facc15" title="Color personalizado">
               </div>
+            </div>
+            <div class="alignment-toolbar-group">
+              <button type="button" id="btn-align-left" class="btn btn-ghost btn-format active" title="Alinear a la izquierda">⬅️</button>
+              <button type="button" id="btn-align-center" class="btn btn-ghost btn-format" title="Centrar letra">↔️</button>
             </div>
           </div>
         </div>

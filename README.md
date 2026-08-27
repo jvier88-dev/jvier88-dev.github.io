@@ -9,7 +9,7 @@
 ### 📚 1. Gestión de Biblioteca de Canciones
 - **Catálogo Completo**: Creación, edición y eliminación de canciones con título, artista, duración estimada y letra formateada.
 - **Escala de Energía (Grados 1 a 7)**: Asignación de niveles de energía desde Grado 1 (Muy baja) hasta Grado 7 (Clímax / Muy alta), con insignias visuales de mini-barras coloreadas.
-- **Formato Enriquecido de Letras**: Editor integrado con negrita, cursiva, subrayado, colores de texto personalizados e inserción de saltos de sección.
+- **Formato Enriquecido y Alineación de Letras**: Editor integrado con negrita, cursiva, subrayado, colores de texto personalizados y selector de alineación (Alineado a la Izquierda por defecto | Centrado opcional).
 - **Audio de Acompañamiento / Pistas**: Adjunta archivos de audio (`.mp3`, `.wav`, etc.) a cualquier canción con almacenamiento local seguro en IndexedDB y reproductor integrado.
 - **Filtros Avanzados y Búsqueda**: Filtrado instantáneo por texto (título/artista), artista específico, nivel de energía y ordenamiento alfabético o por intensidad.
 
