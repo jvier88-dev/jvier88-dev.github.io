@@ -47,8 +47,8 @@
 - **Pantalla Completa y Bloqueo de Suspensión (Wake Lock)**: Evita que la pantalla de la tablet o teléfono se apague durante el concierto.
 - **Modos de Visualización**:
   - **Por Secciones (Paso a Paso)**: Avanza párrafos o estrofas con indicador de sección gigante (ej. `1 / 4`).
-  - **Modo Continuo (Desplazamiento Suave)**: Scroll fluido de la letra completa.
-- **Ajuste Dinámico de Tipografía**: Control de tamaño de fuente independiente por sección y por canción.
+  - **Modo Continuo (Desplazamiento Suave)**: Scroll fluido de la letra completa con avance predeterminado de **400px** y ajuste en pasos de **50px** mediante la flechita hacia abajo (`▼`) situada bajo el icono de scroll (`📜`), mostrando el valor en píxeles justo debajo del icono.
+- **Ajuste Dinámico de Tipografía**: Control directo de tamaño de fuente (`A+` / `A−`) activable desde el botón `A±` o su flechita hacia abajo (`▼`), desplegando el porcentaje del tamaño de letra justo debajo del icono.
 - **Diapositiva para Speeches**: Interfaz oscura de alta legibilidad para discursos y notas de escenario.
 
 ---

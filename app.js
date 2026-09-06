@@ -21,10 +21,10 @@ const FONT_SIZE_MIN = 0.6;
 const FONT_SIZE_MAX = 2.5;
 const FONT_SIZE_STEP = 0.15;
 
-const DEFAULT_SCROLL_AMOUNT = 100;
-const SCROLL_AMOUNT_MIN = 20;
-const SCROLL_AMOUNT_MAX = 600;
-const SCROLL_AMOUNT_STEP = 20;
+const DEFAULT_SCROLL_AMOUNT = 400;
+const SCROLL_AMOUNT_MIN = 50;
+const SCROLL_AMOUNT_MAX = 1000;
+const SCROLL_AMOUNT_STEP = 50;
 
 const DISPLAY_MODES = {
   SECTIONS: 'sections',
@@ -37,6 +37,8 @@ let activeSetlistId = null;
 let setlistIds = [];
 let sectionFontSizes = {};
 let editingId = null;
+let isPreviewMode = false;
+let previewTempSong = null;
 let currentDisplayId = null;
 let currentSections = [];
 let currentSectionIndex = 0;
@@ -95,19 +97,19 @@ const btnManageFullscreen = document.getElementById('btn-manage-fullscreen');
 const importFileInput = document.getElementById('import-file');
 const setlistDropdown = document.getElementById('setlist-dropdown');
 const fontControlsPanel = document.getElementById('font-controls-panel');
+const btnFontStepToggle = document.getElementById('btn-font-step-toggle');
+const btnFontUp = document.getElementById('btn-font-up');
+const btnFontDown = document.getElementById('btn-font-down');
+const fontSizeDisplay = document.getElementById('font-size-display');
 const btnToggleMode = document.getElementById('btn-toggle-mode');
+const btnScrollStepToggle = document.getElementById('btn-scroll-step-toggle');
 const btnEdit = document.getElementById('btn-edit');
-const editMenu = document.getElementById('edit-menu');
-const scrollMenuSection = document.getElementById('scroll-menu-section');
-const btnFontUpMenu = document.getElementById('btn-font-up-menu');
-const btnFontDownMenu = document.getElementById('btn-font-down-menu');
-const btnScrollUpMenu = document.getElementById('btn-scroll-up-menu');
-const btnScrollDownMenu = document.getElementById('btn-scroll-down-menu');
-const scrollAmountDisplayMenu = document.getElementById('scroll-amount-display-menu');
 const scrollControlsPanel = document.getElementById('scroll-controls-panel');
 const btnScrollUp = document.getElementById('btn-scroll-up');
 const btnScrollDown = document.getElementById('btn-scroll-down');
 const scrollAmountDisplay = document.getElementById('scroll-amount-display');
+const btnPreviewSong = document.getElementById('btn-preview-song');
+const btnBackToEdit = document.getElementById('btn-back-to-edit');
 
 // DOM refs para Filtros (Biblioteca y Añadir al setlist)
 const librarySearchInput = document.getElementById('library-search-input');
@@ -1554,6 +1556,9 @@ function resetEditAudioState() {
 
 async function openNewSong() {
   editingId = null;
+  isPreviewMode = false;
+  previewTempSong = null;
+  btnBackToEdit?.classList.add('hidden');
   editTitle.textContent = 'Nueva canción';
   songTitle.value = '';
   if (songArtist) songArtist.value = '';
@@ -1572,6 +1577,9 @@ async function openEditSong(id) {
   const song = songs.find(s => s.id === id);
   if (!song) return;
   editingId = id;
+  isPreviewMode = false;
+  previewTempSong = null;
+  btnBackToEdit?.classList.add('hidden');
   editTitle.textContent = 'Editar canción';
   songTitle.value = song.title;
   if (songArtist) songArtist.value = song.artist || '';
@@ -1645,8 +1653,22 @@ async function saveSong() {
     songs.push({ id: songId, title, artist, durationMin, durationSec, energy, alignment, lyrics, hasAudio });
     setlistIds.push(songId);
     persistSetlistIds();
+
+    if (sectionFontSizes['temp-preview-id']) {
+      sectionFontSizes[songId] = { ...sectionFontSizes['temp-preview-id'] };
+      delete sectionFontSizes['temp-preview-id'];
+      saveSectionFonts();
+    }
+    if (scrollAmounts['temp-preview-id']) {
+      scrollAmounts[songId] = scrollAmounts['temp-preview-id'];
+      delete scrollAmounts['temp-preview-id'];
+      saveScrollAmounts();
+    }
   }
 
+  isPreviewMode = false;
+  previewTempSong = null;
+  btnBackToEdit?.classList.add('hidden');
   resetEditAudioState();
   saveSongs();
   renderAll();
@@ -1810,15 +1832,13 @@ function updateSectionIndicator(song) {
 }
 
 function updateScrollControls() {
-  if (displayMode === DISPLAY_MODES.CONTINUOUS && !showingTitle) {
+  if (displayMode === DISPLAY_MODES.CONTINUOUS) {
     currentScrollAmount = getScrollAmount(currentDisplayId);
-    scrollAmountDisplay.textContent = `${currentScrollAmount}px`;
-    scrollAmountDisplayMenu.textContent = `${currentScrollAmount}px`;
-    scrollMenuSection.classList.remove('hidden');
-    scrollControlsPanel.classList.add('hidden');
+    if (scrollAmountDisplay) scrollAmountDisplay.textContent = `${currentScrollAmount}px`;
+    btnScrollStepToggle?.classList.remove('hidden');
   } else {
-    scrollMenuSection.classList.add('hidden');
-    scrollControlsPanel.classList.add('hidden');
+    btnScrollStepToggle?.classList.add('hidden');
+    scrollControlsPanel?.classList.add('hidden');
   }
 }
 
@@ -1841,13 +1861,104 @@ function showCurrentSection() {
   }
   
   applyCurrentSectionFontSize();
-  const song = songs.find(s => s.id === currentDisplayId);
+  const song = (isPreviewMode && previewTempSong) ? previewTempSong : songs.find(s => s.id === currentDisplayId);
   if (song) updateSectionIndicator(song);
+  updateModeButton();
+  updateScrollControls();
+}
+
+// ── Previsualización ──
+
+function openSongPreview() {
+  const title = songTitle.value.trim() || 'Previsualización';
+  const artist = songArtist ? songArtist.value.trim() : '';
+  const durationMin = songDurationMin && songDurationMin.value !== '' ? songDurationMin.value : '';
+  const durationSec = songDurationSec && songDurationSec.value !== '' ? songDurationSec.value : '';
+  const energy = currentEditEnergy;
+  const alignment = currentEditAlignment || 'left';
+  const lyrics = getSongLyricsValue() || '(Sin letra)';
+
+  const hasAudio = Boolean(currentEditAudioBlob || (editingId && !audioMarkedForDeletion));
+  const targetId = editingId || 'temp-preview-id';
+
+  previewTempSong = {
+    id: targetId,
+    title,
+    artist,
+    durationMin,
+    durationSec,
+    energy,
+    alignment,
+    lyrics,
+    hasAudio
+  };
+
+  isPreviewMode = true;
+  currentDisplayId = targetId;
+  currentDisplaySpeechId = null;
+  currentSections = parseSections(previewTempSong.lyrics);
+  currentSectionIndex = 0;
+  showingTitle = false;
+
+  renderLyrics(previewTempSong);
+  showCurrentSection();
+  btnBackToEdit?.classList.remove('hidden');
+  showScreen('display');
+
+  if (currentEditAudioBlob) {
+    stopAudioPlayer();
+    try {
+      activeAudioObjectUrl = URL.createObjectURL(currentEditAudioBlob);
+      activeAudio = new Audio(activeAudioObjectUrl);
+      if (displayAudioControls) displayAudioControls.classList.remove('hidden');
+
+      activeAudio.addEventListener('loadedmetadata', () => {
+        const dur = activeAudio.duration;
+        if (audioTimeDisplay) audioTimeDisplay.textContent = `00:00 / ${formatAudioTime(dur)}`;
+      });
+      activeAudio.addEventListener('timeupdate', () => {
+        if (!activeAudio) return;
+        const cur = activeAudio.currentTime;
+        const dur = activeAudio.duration || 1;
+        const percent = (cur / dur) * 100;
+        if (audioProgressBar) audioProgressBar.value = percent;
+        if (audioTimeDisplay) audioTimeDisplay.textContent = `${formatAudioTime(cur)} / ${formatAudioTime(dur)}`;
+      });
+      activeAudio.addEventListener('play', () => {
+        if (btnAudioPlay) { btnAudioPlay.textContent = '⏸'; btnAudioPlay.title = 'Pausar'; }
+      });
+      activeAudio.addEventListener('pause', () => {
+        if (btnAudioPlay) { btnAudioPlay.textContent = '▶'; btnAudioPlay.title = 'Reproducir'; }
+      });
+      activeAudio.addEventListener('ended', () => {
+        if (btnAudioPlay) { btnAudioPlay.textContent = '▶'; btnAudioPlay.title = 'Reproducir'; }
+        if (audioProgressBar) audioProgressBar.value = 0;
+      });
+    } catch (err) {
+      console.error('Error al reproducir audio de previsualización:', err);
+    }
+  } else if (editingId && !audioMarkedForDeletion) {
+    setupAudioPlayerForSong(editingId).catch(err => console.error('Error al cargar audio en preview:', err));
+  } else {
+    stopAudioPlayer();
+  }
+}
+
+function exitPreviewToEdit() {
+  isPreviewMode = false;
+  previewTempSong = null;
+  btnBackToEdit?.classList.add('hidden');
+  stopAudioPlayer();
+  showScreen('edit');
 }
 
 // ── Display ──
 
 async function showSong(id, sectionIndex = 0, startWithTitle = true) {
+  isPreviewMode = false;
+  previewTempSong = null;
+  btnBackToEdit?.classList.add('hidden');
+
   const song = songs.find(s => String(s.id) === String(id));
   if (!song) return;
 
@@ -1916,6 +2027,12 @@ function renderLyrics(song) {
   updateScrollControls();
 }
 
+function updateFontSizeDisplay() {
+  if (!fontSizeDisplay) return;
+  const size = currentDisplayId ? getSectionFontSize(currentDisplayId, currentSectionIndex) : defaultFontSize;
+  fontSizeDisplay.textContent = `${Math.round(size * 100)}%`;
+}
+
 function applyCurrentSectionFontSize() {
   if (!currentDisplayId || showingTitle) return;
   const section = displayContent.querySelector('.lyrics-section.active');
@@ -1923,6 +2040,7 @@ function applyCurrentSectionFontSize() {
   const size = getSectionFontSize(currentDisplayId, currentSectionIndex);
   section.style.setProperty('--section-font-size', fontSizeToCss(size));
   document.documentElement.style.setProperty('--font-size-display', fontSizeToCss(size));
+  updateFontSizeDisplay();
 }
 
 function adjustFontSize(delta) {
@@ -1931,7 +2049,7 @@ function adjustFontSize(delta) {
   const newSize = Math.min(FONT_SIZE_MAX, Math.max(FONT_SIZE_MIN, current + delta));
   setSectionFontSize(currentDisplayId, currentSectionIndex, newSize);
   applyCurrentSectionFontSize();
-  flashFontControls();
+  updateFontSizeDisplay();
 }
 
 function toggleDisplayMode() {
@@ -1940,7 +2058,7 @@ function toggleDisplayMode() {
   updateModeButton();
   
   if (currentDisplayId) {
-    const song = songs.find(s => s.id === currentDisplayId);
+    const song = (isPreviewMode && previewTempSong) ? previewTempSong : songs.find(s => s.id === currentDisplayId);
     if (song) {
       renderLyrics(song);
       showCurrentSection();
@@ -1961,20 +2079,7 @@ function adjustScrollAmount(delta) {
   const newAmount = Math.min(SCROLL_AMOUNT_MAX, Math.max(SCROLL_AMOUNT_MIN, current + delta));
   setScrollAmount(currentDisplayId, newAmount);
   currentScrollAmount = newAmount;
-  scrollAmountDisplay.textContent = `${newAmount}px`;
-  scrollAmountDisplayMenu.textContent = `${newAmount}px`;
-  flashControls();
-}
-
-function toggleEditMenu() {
-  editMenu.classList.toggle('hidden');
-  if (!editMenu.classList.contains('hidden')) {
-    editMenu.classList.add('visible');
-    clearTimeout(controlsTimer);
-    controlsTimer = setTimeout(() => {
-      editMenu.classList.remove('visible');
-    }, 3000);
-  }
+  if (scrollAmountDisplay) scrollAmountDisplay.textContent = `${newAmount}px`;
 }
 
 function toggleFullscreen() {
@@ -2753,57 +2858,69 @@ customColorInput?.addEventListener('input', e => {
   applyFormatting('foreColor', color);
 });
 
+btnPreviewSong?.addEventListener('click', openSongPreview);
+btnBackToEdit?.addEventListener('click', exitPreviewToEdit);
+
 document.getElementById('btn-exit-display').addEventListener('click', () => {
   if (document.fullscreenElement) document.exitFullscreen?.();
   closePicker();
-  showScreen('manage');
+  if (isPreviewMode) {
+    exitPreviewToEdit();
+  } else {
+    showScreen('manage');
+  }
 });
 
-document.getElementById('btn-font-up').addEventListener('click', e => {
-  e.stopPropagation();
-  adjustFontSize(FONT_SIZE_STEP);
-});
-document.getElementById('btn-font-down').addEventListener('click', e => {
-  e.stopPropagation();
-  adjustFontSize(-FONT_SIZE_STEP);
-});
-fontControlsPanel?.addEventListener('click', e => {
-  e.stopPropagation();
-  flashFontControls();
-});
-fontControlsPanel?.addEventListener('touchstart', e => {
-  e.stopPropagation();
-  flashFontControls();
-}, { passive: true });
-document.getElementById('btn-fullscreen').addEventListener('click', toggleFullscreen);
+document.getElementById('btn-fullscreen')?.addEventListener('click', toggleFullscreen);
+
 btnToggleMode?.addEventListener('click', e => {
   e.stopPropagation();
   toggleDisplayMode();
 });
 
-btnEdit?.addEventListener('click', e => {
+btnScrollStepToggle?.addEventListener('click', e => {
   e.stopPropagation();
-  toggleEditMenu();
+  fontControlsPanel?.classList.add('hidden');
+  scrollControlsPanel?.classList.toggle('hidden');
 });
 
-btnFontUpMenu?.addEventListener('click', e => {
+const toggleFontPopover = (e) => {
   e.stopPropagation();
-  adjustFontSize(FONT_SIZE_STEP);
-});
+  scrollControlsPanel?.classList.add('hidden');
+  fontControlsPanel?.classList.toggle('hidden');
+  updateFontSizeDisplay();
+};
 
-btnFontDownMenu?.addEventListener('click', e => {
-  e.stopPropagation();
-  adjustFontSize(-FONT_SIZE_STEP);
-});
+btnEdit?.addEventListener('click', toggleFontPopover);
+btnFontStepToggle?.addEventListener('click', toggleFontPopover);
 
-btnScrollUpMenu?.addEventListener('click', e => {
+btnScrollUp?.addEventListener('click', e => {
   e.stopPropagation();
   adjustScrollAmount(SCROLL_AMOUNT_STEP);
 });
 
-btnScrollDownMenu?.addEventListener('click', e => {
+btnScrollDown?.addEventListener('click', e => {
   e.stopPropagation();
   adjustScrollAmount(-SCROLL_AMOUNT_STEP);
+});
+
+btnFontUp?.addEventListener('click', e => {
+  e.stopPropagation();
+  adjustFontSize(FONT_SIZE_STEP);
+});
+
+btnFontDown?.addEventListener('click', e => {
+  e.stopPropagation();
+  adjustFontSize(-FONT_SIZE_STEP);
+});
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('#scroll-mode-wrapper')) {
+    scrollControlsPanel?.classList.add('hidden');
+  }
+  if (!e.target.closest('#font-mode-wrapper')) {
+    fontControlsPanel?.classList.add('hidden');
+  }
 });
 
 document.getElementById('btn-toggle-simple-mode')?.addEventListener('click', toggleSimpleMode);
@@ -2818,15 +2935,6 @@ document.getElementById('btn-toggle-chart')?.addEventListener('click', () => {
       ? '<span id="chart-toggle-text">Mostrar gráfico</span> ▼'
       : '<span id="chart-toggle-text">Ocultar gráfico</span> ▲';
   }
-});
-
-editMenu?.addEventListener('click', e => {
-  e.stopPropagation();
-  editMenu.classList.add('visible');
-  clearTimeout(controlsTimer);
-  controlsTimer = setTimeout(() => {
-    editMenu.classList.remove('visible');
-  }, 3000);
 });
 
 // ── Event listeners de Audio ──

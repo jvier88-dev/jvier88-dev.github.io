@@ -155,7 +155,10 @@
     <header class="edit-header">
       <button id="btn-back" class="btn btn-ghost" aria-label="Volver">← Volver</button>
       <h2 id="edit-title">Nueva canción</h2>
-      <button id="btn-save" class="btn btn-primary">Guardar</button>
+      <div class="edit-header-actions">
+        <button type="button" id="btn-preview-song" class="btn btn-ghost" title="Previsualizar letra en modo escenario">👁️ Previsualizar</button>
+        <button id="btn-save" class="btn btn-primary">Guardar</button>
+      </div>
     </header>
     <main class="edit-main">
       <div class="edit-fields-column">
@@ -264,33 +267,39 @@
         <span id="audio-time-display" class="audio-time-display">00:00 / 00:00</span>
       </div>
       <div class="display-actions">
-        <button id="btn-toggle-mode" class="btn btn-ghost" aria-label="Cambiar modo de visualización" title="Modo de visualización">📄</button>
-        <button id="btn-edit" class="btn btn-ghost" aria-label="Editar">✎</button>
-        <button id="btn-fullscreen" class="btn btn-ghost" aria-label="Pantalla completa">⛶</button>
-        <button id="btn-exit-display" class="btn btn-ghost" aria-label="Salir">✕</button>
+        <button id="btn-back-to-edit" class="btn btn-ghost btn-back-edit hidden" title="Volver a edición de canción">← Volver a edición</button>
+
+        <!-- Grupo de Modo Scroll con botón e icono/flecha ABAJO -->
+        <div id="scroll-mode-wrapper" class="control-dropdown-wrapper">
+          <div class="control-btn-stacked">
+            <button id="btn-toggle-mode" class="btn btn-ghost" aria-label="Cambiar modo de visualización" title="Modo de visualización">📄</button>
+            <button id="btn-scroll-step-toggle" class="btn btn-ghost btn-arrow-down hidden" title="Ajustar avance de scroll (px)" aria-label="Ajustar avance">▼</button>
+          </div>
+          <div id="scroll-controls-panel" class="controls-popover-below hidden" aria-label="Control de avance de scroll">
+            <button id="btn-scroll-down" class="btn btn-ghost btn-popover-step" title="Disminuir avance (-50px)" aria-label="Reducir avance">◀</button>
+            <span id="scroll-amount-display" class="popover-val-display">400px</span>
+            <button id="btn-scroll-up" class="btn btn-ghost btn-popover-step" title="Aumentar avance (+50px)" aria-label="Aumentar avance">▶</button>
+          </div>
+        </div>
+
+        <!-- Grupo de Tamaño de Letra (A±) con flecha ABAJO -->
+        <div id="font-mode-wrapper" class="control-dropdown-wrapper">
+          <div class="control-btn-stacked">
+            <button id="btn-edit" class="btn btn-ghost btn-font-size-toggle" aria-label="Tamaño de letra" title="Tamaño de letra">A<small class="font-pm">±</small></button>
+            <button id="btn-font-step-toggle" class="btn btn-ghost btn-arrow-down" title="Ajustar tamaño de letra" aria-label="Ajustar tamaño">▼</button>
+          </div>
+          <div id="font-controls-panel" class="controls-popover-below hidden" aria-label="Tamaño de letra">
+            <button id="btn-font-down" class="btn btn-ghost btn-popover-step" title="Letra más pequeña" aria-label="Letra más pequeña">A−</button>
+            <span id="font-size-display" class="popover-val-display">100%</span>
+            <button id="btn-font-up" class="btn btn-ghost btn-popover-step" title="Letra más grande" aria-label="Letra más grande">A+</button>
+          </div>
+        </div>
+
+        <button id="btn-fullscreen" class="btn btn-ghost" aria-label="Pantalla completa" title="Pantalla completa">⛶</button>
+        <button id="btn-exit-display" class="btn btn-ghost" aria-label="Salir" title="Salir">✕</button>
       </div>
     </header>
     <div id="display-content" class="display-content"></div>
-    <div id="edit-menu" class="edit-menu hidden">
-      <div class="menu-section">
-        <button id="btn-font-up-menu" class="btn btn-ghost menu-item" aria-label="Letra más grande">A+</button>
-        <button id="btn-font-down-menu" class="btn btn-ghost menu-item" aria-label="Letra más pequeña">A−</button>
-      </div>
-      <div class="menu-section" id="scroll-menu-section">
-        <button id="btn-scroll-up-menu" class="btn btn-ghost menu-item" aria-label="Aumentar avance">▲</button>
-        <span id="scroll-amount-display-menu" class="scroll-amount-display-menu">100px</span>
-        <button id="btn-scroll-down-menu" class="btn btn-ghost menu-item" aria-label="Reducir avance">▼</button>
-      </div>
-    </div>
-    <div id="font-controls-panel" class="font-controls-panel hidden" aria-label="Tamaño de letra">
-      <button id="btn-font-up" class="btn btn-ghost" aria-label="Letra más grande">A+</button>
-      <button id="btn-font-down" class="btn btn-ghost" aria-label="Letra más pequeña">A−</button>
-    </div>
-    <div id="scroll-controls-panel" class="scroll-controls-panel hidden" aria-label="Control de avance">
-      <button id="btn-scroll-up" class="btn btn-ghost" aria-label="Aumentar avance">▲</button>
-      <span id="scroll-amount-display" class="scroll-amount-display">100px</span>
-      <button id="btn-scroll-down" class="btn btn-ghost" aria-label="Reducir avance">▼</button>
-    </div>
     <div id="display-title-bar" class="display-title-bar"></div>
     <div id="section-indicator" class="section-indicator"></div>
   </div>

@@ -698,6 +698,24 @@ body {
   text-align: center;
 }
 
+.edit-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btn-back-edit {
+  border: 1px solid rgba(74, 222, 128, 0.4) !important;
+  color: var(--accent) !important;
+  font-weight: 700 !important;
+  background: rgba(74, 222, 128, 0.1) !important;
+}
+
+.btn-back-edit:hover,
+.btn-back-edit:active {
+  background: rgba(74, 222, 128, 0.25) !important;
+}
+
 .edit-main {
   flex: 1;
   overflow-y: auto;
@@ -943,6 +961,7 @@ body {
   align-items: center;
   gap: 0.35rem;
   margin-left: auto;
+  position: relative;
 }
 
 .display-actions .btn {
@@ -951,6 +970,107 @@ body {
   min-height: 40px;
   font-size: 1.1rem;
   border-radius: 8px;
+}
+
+.control-dropdown-wrapper {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.control-btn-stacked {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+
+.btn-arrow-down {
+  padding: 0.1rem 0.35rem !important;
+  min-width: 36px !important;
+  height: 14px !important;
+  min-height: 14px !important;
+  font-size: 0.62rem !important;
+  line-height: 1 !important;
+  border-radius: 4px !important;
+  color: var(--accent) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  margin-top: -3px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.btn-arrow-down:hover,
+.btn-arrow-down.active {
+  background: rgba(74, 222, 128, 0.25) !important;
+  color: #fff !important;
+}
+
+.btn-arrow-down.hidden {
+  display: none !important;
+}
+
+.controls-popover-below {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: rgba(18, 18, 18, 0.96);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.3rem 0.6rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65);
+  z-index: 40;
+  white-space: nowrap;
+}
+
+.controls-popover-below.hidden {
+  display: none !important;
+}
+
+.popover-val-display {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--accent);
+  min-width: 48px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+
+.btn-popover-step {
+  padding: 0.25rem 0.5rem !important;
+  min-width: 30px !important;
+  min-height: 30px !important;
+  font-size: 0.85rem !important;
+  font-weight: 700 !important;
+  border-radius: 6px !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+}
+
+.btn-popover-step:hover {
+  background: rgba(255, 255, 255, 0.2) !important;
+}
+
+.btn-font-size-toggle {
+  font-weight: 800 !important;
+  font-size: 1.05rem !important;
+  letter-spacing: -0.04em !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.font-pm {
+  font-size: 0.7rem;
+  font-weight: 700;
+  margin-left: 1px;
+  color: var(--accent);
 }
 
 .display-audio-controls {
