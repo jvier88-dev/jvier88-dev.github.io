@@ -1,4 +1,4 @@
-const CACHE_NAME = 'quatroletras-v18';
+const CACHE_NAME = 'quatroletras-v31';
 const STATIC_ASSETS = [
   './',
   './index.html',

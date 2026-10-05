@@ -71,6 +71,85 @@ body {
   margin-top: 0.25rem;
 }
 
+/* ── Selector de Proyecto Musical ── */
+
+.project-selector-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-top: 0.85rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.4rem 0.75rem;
+}
+
+.project-selector-main {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.project-icon {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.project-dropdown {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  color: var(--accent);
+  font-size: 0.95rem;
+  font-family: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%234ade80' d='M2 4l4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.2rem center;
+  padding-right: 1.5rem;
+}
+
+.project-dropdown:focus {
+  outline: none;
+}
+
+.project-name-display {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--accent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.project-toggle-btn {
+  min-width: 34px;
+  min-height: 34px;
+  padding: 0.35rem;
+  flex-shrink: 0;
+  font-size: 0.95rem;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+}
+
+.project-toggle-btn:hover {
+  opacity: 1;
+}
+
+.project-selector-bar.collapsed .project-selector-actions {
+  display: none !important;
+}
+
+.project-selector-bar.collapsed .project-dropdown {
+  display: none !important;
+}
+
 /* ── Barra de Pestañas Superior ── */
 
 .nav-tabs {
@@ -122,11 +201,6 @@ body {
 }
 
 /* ── Filtrado de Secciones por Pestañas ── */
-
-.manage-main[data-tab="all"] .data-section,
-.manage-main[data-tab="all"] .pedal-settings {
-  display: none !important;
-}
 
 .manage-main[data-tab="setlist"] .library-section,
 .manage-main[data-tab="setlist"] .data-section,
@@ -364,6 +438,39 @@ body {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+.field-checkbox {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.65rem 0.85rem;
+  margin-top: 0.25rem;
+  user-select: none;
+}
+
+.field-checkbox:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.form-checkbox {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--accent);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.field-checkbox span {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.3;
 }
 
 .duration-field {
@@ -771,6 +878,47 @@ body {
   color: var(--accent);
 }
 
+.btn-autofit-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.55rem;
+  min-height: 32px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.btn-autofit-checkbox:hover {
+  background: var(--surface-hover);
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.btn-autofit-checkbox:has(:checked) {
+  border-color: var(--accent);
+  background: rgba(74, 222, 128, 0.15);
+  color: var(--accent);
+}
+
+.form-checkbox-small {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--accent);
+  cursor: pointer;
+  margin: 0;
+}
+
+.autofit-label-text {
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
 .color-picker-wrapper {
   position: relative;
   display: inline-flex;
@@ -958,10 +1106,28 @@ body {
 
 .display-actions {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 0.35rem;
   margin-left: auto;
   position: relative;
+}
+
+.control-item-labeled {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.control-label {
+  font-size: 0.58rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  user-select: none;
+  line-height: 1;
+  pointer-events: none;
 }
 
 .display-actions .btn {

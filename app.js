@@ -8,8 +8,12 @@ const PEDAL_KEYS_KEY = 'quatroletras-pedal-keys';
 const DISPLAY_MODE_KEY = 'quatroletras-display-mode';
 const SCROLL_AMOUNTS_KEY = 'quatroletras-scroll-amounts';
 const SIMPLE_MODE_KEY = 'quatroletras-simple-mode';
+const PROJECTS_KEY = 'quatroletras-projects';
+const ACTIVE_PROJECT_KEY = 'quatroletras-active-project';
+const HIDE_PROJECT_OPTIONS_KEY = 'quatroletras-hide-project-options';
 
 let isSimpleMode = localStorage.getItem(SIMPLE_MODE_KEY) === 'true';
+let isProjectOptionsHidden = localStorage.getItem(HIDE_PROJECT_OPTIONS_KEY) === 'true';
 
 const DEFAULT_PEDAL_KEYS = {
   next: 'PageDown',
@@ -31,6 +35,8 @@ const DISPLAY_MODES = {
   CONTINUOUS: 'continuous'
 };
 
+let projects = [];
+let activeProjectId = null;
 let songs = [];
 let setlists = [];
 let activeSetlistId = null;
@@ -110,6 +116,18 @@ const btnScrollDown = document.getElementById('btn-scroll-down');
 const scrollAmountDisplay = document.getElementById('scroll-amount-display');
 const btnPreviewSong = document.getElementById('btn-preview-song');
 const btnBackToEdit = document.getElementById('btn-back-to-edit');
+const btnAutoFitFont = document.getElementById('btn-auto-fit-font');
+const btnOpenPicker = document.getElementById('btn-open-picker');
+
+const projectSelectorBar = document.getElementById('project-selector-bar');
+const projectNameDisplay = document.getElementById('project-name-display');
+const projectDropdown = document.getElementById('project-dropdown');
+const projectSelectorActions = document.getElementById('project-selector-actions');
+const btnNewProject = document.getElementById('btn-new-project');
+const btnRenameProject = document.getElementById('btn-rename-project');
+const btnDeleteProject = document.getElementById('btn-delete-project');
+const btnToggleProjectBar = document.getElementById('btn-toggle-project-bar');
+const songAutoFit = document.getElementById('song-autofit');
 
 // DOM refs para Filtros (Biblioteca y Añadir al setlist)
 const librarySearchInput = document.getElementById('library-search-input');
@@ -231,7 +249,10 @@ function loadScrollAmounts() {
 }
 
 function saveScrollAmounts() {
+  const active = getActiveProject();
+  if (active) active.scrollAmounts = { ...scrollAmounts };
   localStorage.setItem(SCROLL_AMOUNTS_KEY, JSON.stringify(scrollAmounts));
+  localStorage.setItem(PROJECTS_KEY, JSON.stringify(projects));
 }
 
 function getScrollAmount(songId) {
@@ -243,6 +264,205 @@ function setScrollAmount(songId, amount) {
   saveScrollAmounts();
 }
 
+// ── Proyectos Musicales ──
+
+function loadProjects() {
+  projects = [];
+  try {
+    const parsed = JSON.parse(localStorage.getItem(PROJECTS_KEY));
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      projects = parsed;
+    }
+  } catch { /* fallback */ }
+
+  activeProjectId = localStorage.getItem(ACTIVE_PROJECT_KEY);
+
+  // Migración desde versión anterior con proyecto único
+  if (projects.length === 0) {
+    loadLegacySingleProjectData();
+    const id = crypto.randomUUID();
+    const defaultProject = {
+      id,
+      name: 'Proyecto Principal',
+      songs: [...songs],
+      setlists: [...setlists],
+      activeSetlistId: activeSetlistId,
+      sectionFontSizes: { ...sectionFontSizes },
+      scrollAmounts: { ...scrollAmounts }
+    };
+    projects = [defaultProject];
+    activeProjectId = id;
+    saveProjects();
+  }
+
+  if (!projects.some(p => p.id === activeProjectId)) {
+    activeProjectId = projects[0]?.id ?? null;
+  }
+
+  loadActiveProjectData();
+}
+
+function loadLegacySingleProjectData() {
+  loadSongs();
+  loadSetlists();
+  loadSectionFonts();
+  try {
+    scrollAmounts = JSON.parse(localStorage.getItem(SCROLL_AMOUNTS_KEY)) || {};
+  } catch {
+    scrollAmounts = {};
+  }
+}
+
+function saveProjects() {
+  saveActiveProjectState();
+  localStorage.setItem(PROJECTS_KEY, JSON.stringify(projects));
+  if (activeProjectId) {
+    localStorage.setItem(ACTIVE_PROJECT_KEY, activeProjectId);
+  }
+}
+
+function getActiveProject() {
+  return projects.find(p => p.id === activeProjectId) ?? null;
+}
+
+function saveActiveProjectState() {
+  const active = getActiveProject();
+  if (!active) return;
+  persistSetlistIds();
+  active.songs = [...songs];
+  active.setlists = [...setlists];
+  active.activeSetlistId = activeSetlistId;
+  active.sectionFontSizes = { ...sectionFontSizes };
+  active.scrollAmounts = { ...scrollAmounts };
+
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(songs));
+  localStorage.setItem(SETLISTS_KEY, JSON.stringify(setlists));
+  if (activeSetlistId) localStorage.setItem(ACTIVE_SETLIST_KEY, activeSetlistId);
+  localStorage.setItem(SECTION_FONTS_KEY, JSON.stringify(sectionFontSizes));
+  localStorage.setItem(SCROLL_AMOUNTS_KEY, JSON.stringify(scrollAmounts));
+}
+
+function loadActiveProjectData() {
+  const active = getActiveProject();
+  if (!active) return;
+  songs = Array.isArray(active.songs) ? [...active.songs] : [];
+  setlists = Array.isArray(active.setlists) ? [...active.setlists] : [];
+  activeSetlistId = active.activeSetlistId || (setlists[0]?.id ?? null);
+  sectionFontSizes = active.sectionFontSizes ? { ...active.sectionFontSizes } : {};
+  scrollAmounts = active.scrollAmounts ? { ...active.scrollAmounts } : {};
+
+  if (setlists.length === 0) {
+    const id = crypto.randomUUID();
+    const items = [{ type: 'tanda', id: crypto.randomUUID(), name: 'Tanda 1' }];
+    setlists = [{ id, name: 'Setlist 1', songIds: [], items }];
+    activeSetlistId = id;
+  }
+  setlists.forEach(sl => ensureSetlistItems(sl));
+  if (!setlists.some(s => s.id === activeSetlistId)) {
+    activeSetlistId = setlists[0]?.id ?? null;
+  }
+  syncSetlistIdsFromActive();
+  pruneSetlist();
+}
+
+function switchProject(id) {
+  if (id === activeProjectId) return;
+  saveActiveProjectState();
+  activeProjectId = id;
+  loadActiveProjectData();
+  saveProjects();
+  renderProjectSelector();
+  renderSetlistSelector();
+  renderAll();
+}
+
+function createProject(name) {
+  saveActiveProjectState();
+  const id = crypto.randomUUID();
+  const setlistId = crypto.randomUUID();
+  const newProj = {
+    id,
+    name,
+    songs: [],
+    setlists: [{ id: setlistId, name: 'Setlist 1', songIds: [], items: [{ type: 'tanda', id: crypto.randomUUID(), name: 'Tanda 1' }] }],
+    activeSetlistId: setlistId,
+    sectionFontSizes: {},
+    scrollAmounts: {}
+  };
+  projects.push(newProj);
+  activeProjectId = id;
+  loadActiveProjectData();
+  saveProjects();
+  renderProjectSelector();
+  renderSetlistSelector();
+  renderAll();
+}
+
+function renameActiveProject() {
+  const active = getActiveProject();
+  if (!active) return;
+  const name = prompt('Nombre del proyecto musical:', active.name);
+  if (!name?.trim()) return;
+  active.name = name.trim();
+  saveProjects();
+  renderProjectSelector();
+}
+
+function deleteActiveProject() {
+  if (projects.length <= 1) {
+    alert('Debe quedar al menos un proyecto musical.');
+    return;
+  }
+  const active = getActiveProject();
+  if (!active) return;
+  if (!confirm(`¿Eliminar el proyecto musical "${active.name}"? Se perderán todas sus canciones y setlists.`)) return;
+
+  projects = projects.filter(p => p.id !== active.id);
+  activeProjectId = projects[0].id;
+  loadActiveProjectData();
+  saveProjects();
+  renderProjectSelector();
+  renderSetlistSelector();
+  renderAll();
+}
+
+function updateProjectBarVisibility() {
+  if (!projectSelectorBar) return;
+  const active = getActiveProject();
+  if (projectNameDisplay && active) {
+    projectNameDisplay.textContent = active.name;
+  }
+  const isHidden = isProjectOptionsHidden;
+  projectSelectorBar.classList.toggle('collapsed', isHidden);
+  if (projectNameDisplay) projectNameDisplay.classList.toggle('hidden', !isHidden);
+  if (projectDropdown) projectDropdown.classList.toggle('hidden', isHidden);
+  if (projectSelectorActions) projectSelectorActions.classList.toggle('hidden', isHidden);
+
+  if (btnToggleProjectBar) {
+    btnToggleProjectBar.title = isHidden ? 'Mostrar opciones de proyecto' : 'Ocultar opciones de proyecto';
+    btnToggleProjectBar.innerHTML = isHidden ? '👁️' : '🙈';
+  }
+}
+
+function toggleProjectBarVisibility() {
+  isProjectOptionsHidden = !isProjectOptionsHidden;
+  localStorage.setItem(HIDE_PROJECT_OPTIONS_KEY, isProjectOptionsHidden ? 'true' : 'false');
+  updateProjectBarVisibility();
+}
+
+function renderProjectSelector() {
+  if (!projectDropdown) return;
+  projectDropdown.innerHTML = '';
+  projects.forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p.id;
+    opt.textContent = p.name;
+    if (p.id === activeProjectId) opt.selected = true;
+    projectDropdown.appendChild(opt);
+  });
+  updateProjectBarVisibility();
+}
+
 function loadSongs() {
   try {
     songs = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
@@ -252,7 +472,10 @@ function loadSongs() {
 }
 
 function saveSongs() {
+  const active = getActiveProject();
+  if (active) active.songs = [...songs];
   localStorage.setItem(STORAGE_KEY, JSON.stringify(songs));
+  localStorage.setItem(PROJECTS_KEY, JSON.stringify(projects));
 }
 
 // ── Setlist Helpers & Item Operations ──
@@ -317,10 +540,16 @@ function loadSetlists() {
 
 function saveSetlists() {
   setlists.forEach(sl => ensureSetlistItems(sl));
+  const active = getActiveProject();
+  if (active) {
+    active.setlists = [...setlists];
+    active.activeSetlistId = activeSetlistId;
+  }
   localStorage.setItem(SETLISTS_KEY, JSON.stringify(setlists));
   if (activeSetlistId) {
     localStorage.setItem(ACTIVE_SETLIST_KEY, activeSetlistId);
   }
+  localStorage.setItem(PROJECTS_KEY, JSON.stringify(projects));
 }
 
 function syncSetlistIdsFromActive() {
@@ -355,7 +584,10 @@ function loadSectionFonts() {
 }
 
 function saveSectionFonts() {
+  const active = getActiveProject();
+  if (active) active.sectionFontSizes = { ...sectionFontSizes };
   localStorage.setItem(SECTION_FONTS_KEY, JSON.stringify(sectionFontSizes));
+  localStorage.setItem(PROJECTS_KEY, JSON.stringify(projects));
 }
 
 function getSectionFontSize(songId, sectionIndex) {
@@ -1564,6 +1796,7 @@ async function openNewSong() {
   if (songArtist) songArtist.value = '';
   if (songDurationMin) songDurationMin.value = '';
   if (songDurationSec) songDurationSec.value = '';
+  if (songAutoFit) songAutoFit.checked = false;
   setEditEnergy(0);
   setEditAlignment('left');
   setSongLyricsValue('');
@@ -1585,6 +1818,7 @@ async function openEditSong(id) {
   if (songArtist) songArtist.value = song.artist || '';
   if (songDurationMin) songDurationMin.value = song.durationMin ?? '';
   if (songDurationSec) songDurationSec.value = song.durationSec ?? '';
+  if (songAutoFit) songAutoFit.checked = Boolean(song.autoFitFont);
   setEditEnergy(song.energy || 0);
   setEditAlignment(song.alignment || 'left');
   setSongLyricsValue(song.lyrics);
@@ -1612,6 +1846,7 @@ async function saveSong() {
   const durationSec = songDurationSec && songDurationSec.value !== '' ? Math.min(59, Math.max(0, parseInt(songDurationSec.value, 10) || 0)) : '';
   const energy = currentEditEnergy;
   const alignment = currentEditAlignment || 'left';
+  const autoFitFont = Boolean(songAutoFit?.checked);
   const lyrics = getSongLyricsValue();
 
   if (!title) {
@@ -1634,6 +1869,7 @@ async function saveSong() {
       song.durationSec = durationSec;
       song.energy = energy;
       song.alignment = alignment;
+      song.autoFitFont = autoFitFont;
       song.lyrics = lyrics;
       if (currentEditAudioBlob) {
         await saveSongAudio(editingId, currentEditAudioBlob, currentEditAudioName);
@@ -1650,7 +1886,7 @@ async function saveSong() {
       await saveSongAudio(songId, currentEditAudioBlob, currentEditAudioName);
       hasAudio = true;
     }
-    songs.push({ id: songId, title, artist, durationMin, durationSec, energy, alignment, lyrics, hasAudio });
+    songs.push({ id: songId, title, artist, durationMin, durationSec, energy, alignment, autoFitFont, lyrics, hasAudio });
     setlistIds.push(songId);
     persistSetlistIds();
 
@@ -1848,16 +2084,16 @@ function showCurrentSection() {
     titleSlide.classList.toggle('active', showingTitle);
   }
   
-  if (displayMode === DISPLAY_MODES.SECTIONS) {
-    displayContent.querySelectorAll('.lyrics-section').forEach((el, i) => {
+  displayContent.querySelectorAll('.lyrics-section').forEach((el, i) => {
+    if (displayMode === DISPLAY_MODES.SECTIONS) {
       el.classList.toggle('active', !showingTitle && i === currentSectionIndex);
-    });
-    if (displayContent) displayContent.scrollTop = 0;
-  } else {
-    // Modo continuo: mostrar siempre la sección continua
-    displayContent.querySelectorAll('.lyrics-section').forEach(el => {
+    } else {
       el.classList.toggle('active', !showingTitle);
-    });
+    }
+  });
+
+  if (displayMode === DISPLAY_MODES.SECTIONS && displayContent) {
+    displayContent.scrollTop = 0;
   }
   
   applyCurrentSectionFontSize();
@@ -1865,6 +2101,12 @@ function showCurrentSection() {
   if (song) updateSectionIndicator(song);
   updateModeButton();
   updateScrollControls();
+
+  if (!showingTitle && song?.autoFitFont) {
+    setTimeout(() => {
+      autoFitFontSize();
+    }, 40);
+  }
 }
 
 // ── Previsualización ──
@@ -1876,6 +2118,7 @@ function openSongPreview() {
   const durationSec = songDurationSec && songDurationSec.value !== '' ? songDurationSec.value : '';
   const energy = currentEditEnergy;
   const alignment = currentEditAlignment || 'left';
+  const autoFitFont = Boolean(songAutoFit?.checked);
   const lyrics = getSongLyricsValue() || '(Sin letra)';
 
   const hasAudio = Boolean(currentEditAudioBlob || (editingId && !audioMarkedForDeletion));
@@ -1889,6 +2132,7 @@ function openSongPreview() {
     durationSec,
     energy,
     alignment,
+    autoFitFont,
     lyrics,
     hasAudio
   };
@@ -1969,7 +2213,18 @@ async function showSong(id, sectionIndex = 0, startWithTitle = true) {
   showingTitle = Boolean(startWithTitle);
 
   renderLyrics(song);
+  showCurrentSection();
   showScreen('display');
+
+  if (displayMode === DISPLAY_MODES.CONTINUOUS && displayContent) {
+    setTimeout(() => {
+      if (!showingTitle) {
+        displayContent.scrollTop = displayContent.scrollHeight;
+      } else {
+        displayContent.scrollTop = 0;
+      }
+    }, 50);
+  }
 
   if (song.hasAudio) {
     setupAudioPlayerForSong(song.id).catch(err => console.error('Error al cargar audio:', err));
@@ -2015,7 +2270,7 @@ function renderLyrics(song) {
   } else {
     // Modo continuo
     const continuousSection = document.createElement('div');
-    continuousSection.className = 'lyrics-section continuous';
+    continuousSection.className = 'lyrics-section continuous' + (!showingTitle ? ' active' : '');
     const size = getSectionFontSize(song.id, 0);
     continuousSection.style.setProperty('--section-font-size', fontSizeToCss(size));
     renderSectionLines(continuousSection, (song.lyrics || '').trim());
@@ -2048,6 +2303,65 @@ function adjustFontSize(delta) {
   const current = getSectionFontSize(currentDisplayId, currentSectionIndex);
   const newSize = Math.min(FONT_SIZE_MAX, Math.max(FONT_SIZE_MIN, current + delta));
   setSectionFontSize(currentDisplayId, currentSectionIndex, newSize);
+  applyCurrentSectionFontSize();
+  updateFontSizeDisplay();
+}
+
+function autoFitFontSize() {
+  if (!currentDisplayId) return;
+
+  if (showingTitle) {
+    showingTitle = false;
+    showCurrentSection();
+  }
+
+  const container = displayContent.querySelector('.lyrics-section.active');
+  if (!container) return;
+
+  const lines = container.querySelectorAll('.lyrics-line');
+  if (!lines || lines.length === 0) return;
+
+  // 1. Ancho de la línea más larga
+  let maxLineWidth = 0;
+  lines.forEach(line => {
+    const w = line.getBoundingClientRect().width || line.scrollWidth;
+    if (w > maxLineWidth) maxLineWidth = w;
+  });
+
+  // 2. Alto total de la estrofa/sección activa
+  const containerRect = container.getBoundingClientRect();
+  const currentSectionHeight = containerRect.height || container.scrollHeight;
+
+  if (maxLineWidth <= 0 || currentSectionHeight <= 0) return;
+
+  // 3. Dimensiones disponibles en el contenedor principal
+  const computedStyle = window.getComputedStyle(displayContent);
+  const paddingLeft = parseFloat(computedStyle.paddingLeft) || 32;
+  const paddingRight = parseFloat(computedStyle.paddingRight) || 32;
+  const paddingTop = parseFloat(computedStyle.paddingTop) || 32;
+  const paddingBottom = parseFloat(computedStyle.paddingBottom) || 32;
+
+  const availableWidth = displayContent.clientWidth - paddingLeft - paddingRight - 16;
+  const availableHeight = displayContent.clientHeight - paddingTop - paddingBottom - 16;
+
+  if (availableWidth <= 0 || availableHeight <= 0) return;
+
+  const currentSize = getSectionFontSize(currentDisplayId, currentSectionIndex);
+
+  const scaleW = availableWidth / maxLineWidth;
+  const scaleH = availableHeight / currentSectionHeight;
+
+  let scale = scaleW;
+  if (displayMode === DISPLAY_MODES.SECTIONS) {
+    scale = Math.min(scaleW, scaleH);
+  }
+
+  let targetSize = currentSize * scale;
+
+  targetSize = Math.min(FONT_SIZE_MAX, Math.max(FONT_SIZE_MIN, targetSize));
+  targetSize = Math.round(targetSize * 100) / 100;
+
+  setSectionFontSize(currentDisplayId, currentSectionIndex, targetSize);
   applyCurrentSectionFontSize();
   updateFontSizeDisplay();
 }
@@ -2103,11 +2417,37 @@ function updateFullscreenButtons() {
 // ── Exportar / Importar ──
 
 function buildExportData() {
-  persistSetlistIds();
+  saveActiveProjectState();
   return {
-    version: 3,
+    version: 4,
     app: 'quatroletras',
     exportedAt: new Date().toISOString(),
+    projects: projects.map(p => ({
+      id: p.id,
+      name: p.name,
+      songs: (p.songs || []).map(s => ({
+        id: s.id,
+        title: s.title,
+        artist: s.artist || '',
+        durationMin: s.durationMin ?? '',
+        durationSec: s.durationSec ?? '',
+        energy: s.energy || 0,
+        alignment: s.alignment || 'left',
+        autoFitFont: Boolean(s.autoFitFont),
+        lyrics: s.lyrics,
+        hasAudio: Boolean(s.hasAudio)
+      })),
+      setlists: (p.setlists || []).map(sl => ({
+        id: sl.id,
+        name: sl.name,
+        songIds: [...(sl.songIds || [])],
+        items: Array.isArray(sl.items) ? sl.items.map(i => ({ ...i })) : []
+      })),
+      activeSetlistId: p.activeSetlistId,
+      sectionFontSizes: p.sectionFontSizes || {},
+      scrollAmounts: p.scrollAmounts || {}
+    })),
+    activeProjectId,
     songs: songs.map(s => ({
       id: s.id,
       title: s.title,
@@ -2115,6 +2455,8 @@ function buildExportData() {
       durationMin: s.durationMin ?? '',
       durationSec: s.durationSec ?? '',
       energy: s.energy || 0,
+      alignment: s.alignment || 'left',
+      autoFitFont: Boolean(s.autoFitFont),
       lyrics: s.lyrics,
       hasAudio: Boolean(s.hasAudio)
     })),
@@ -2160,14 +2502,45 @@ async function exportLibrary() {
 }
 
 function validateImportData(raw) {
-  if (!raw || raw.app !== 'quatroletras' || !Array.isArray(raw.songs)) {
+  if (!raw || raw.app !== 'quatroletras') {
     throw new Error('Archivo no válido. Usa un export de QuatroLetras.');
+  }
+
+  if (Array.isArray(raw.projects) && raw.projects.length > 0) {
+    const validProjects = raw.projects.map(p => {
+      const pSongs = Array.isArray(p.songs)
+        ? p.songs.filter(s => s && typeof s.id === 'string' && typeof s.title === 'string' && typeof s.lyrics === 'string')
+        : [];
+      const pSetlists = Array.isArray(p.setlists)
+        ? p.setlists.filter(sl => sl && typeof sl.id === 'string' && typeof sl.name === 'string')
+        : [];
+      return {
+        id: typeof p.id === 'string' ? p.id : crypto.randomUUID(),
+        name: typeof p.name === 'string' && p.name.trim() ? p.name.trim() : 'Proyecto Importado',
+        songs: pSongs,
+        setlists: pSetlists,
+        activeSetlistId: typeof p.activeSetlistId === 'string' ? p.activeSetlistId : (pSetlists[0]?.id ?? null),
+        sectionFontSizes: p.sectionFontSizes && typeof p.sectionFontSizes === 'object' ? p.sectionFontSizes : {},
+        scrollAmounts: p.scrollAmounts && typeof p.scrollAmounts === 'object' ? p.scrollAmounts : {}
+      };
+    });
+
+    return {
+      isMultiProject: true,
+      projects: validProjects,
+      activeProjectId: typeof raw.activeProjectId === 'string' ? raw.activeProjectId : validProjects[0]?.id
+    };
+  }
+
+  if (!Array.isArray(raw.songs)) {
+    throw new Error('El archivo no contiene canciones ni proyectos válidos.');
   }
   const validSongs = raw.songs.filter(
     s => s && typeof s.id === 'string' && typeof s.title === 'string' && typeof s.lyrics === 'string'
   );
   if (validSongs.length === 0) throw new Error('El archivo no contiene canciones válidas.');
   return {
+    isMultiProject: false,
     songs: validSongs,
     setlists: Array.isArray(raw.setlists)
       ? raw.setlists.filter(
@@ -2179,6 +2552,50 @@ function validateImportData(raw) {
     sectionFontSizes: raw.sectionFontSizes && typeof raw.sectionFontSizes === 'object' ? raw.sectionFontSizes : null,
     scrollAmounts: raw.scrollAmounts && typeof raw.scrollAmounts === 'object' ? raw.scrollAmounts : null,
   };
+}
+
+async function importProjectsData(data) {
+  saveActiveProjectState();
+  const initialActiveId = activeProjectId;
+
+  for (const impProj of data.projects) {
+    let targetProj = projects.find(p => p.id === impProj.id || p.name.toLowerCase() === impProj.name.toLowerCase());
+    if (!targetProj) {
+      targetProj = {
+        id: impProj.id,
+        name: impProj.name,
+        songs: [],
+        setlists: [],
+        activeSetlistId: null,
+        sectionFontSizes: {},
+        scrollAmounts: {}
+      };
+      projects.push(targetProj);
+    }
+
+    activeProjectId = targetProj.id;
+    loadActiveProjectData();
+
+    await importLibrary({
+      songs: impProj.songs,
+      setlists: impProj.setlists,
+      activeSetlistId: impProj.activeSetlistId,
+      sectionFontSizes: impProj.sectionFontSizes,
+      scrollAmounts: impProj.scrollAmounts
+    });
+  }
+
+  if (data.activeProjectId && projects.some(p => p.id === data.activeProjectId)) {
+    activeProjectId = data.activeProjectId;
+  } else if (projects.some(p => p.id === initialActiveId)) {
+    activeProjectId = initialActiveId;
+  }
+
+  saveProjects();
+  loadActiveProjectData();
+  renderProjectSelector();
+  renderSetlistSelector();
+  renderAll();
 }
 
 function normalizeStr(str) {
@@ -2326,6 +2743,7 @@ async function importLibrary(data) {
         durationSec: imported.durationSec ?? '',
         energy: imported.energy || 0,
         alignment: imported.alignment || 'left',
+        autoFitFont: Boolean(imported.autoFitFont),
         lyrics: imported.lyrics,
         hasAudio: Boolean(imported.hasAudio)
       };
@@ -2358,6 +2776,7 @@ async function importLibrary(data) {
       if (imported.durationSec !== undefined) existing.durationSec = imported.durationSec;
       if (imported.energy !== undefined) existing.energy = imported.energy;
       if (imported.alignment !== undefined) existing.alignment = imported.alignment;
+      if (imported.autoFitFont !== undefined) existing.autoFitFont = Boolean(imported.autoFitFont);
       if (imported.lyrics !== undefined) existing.lyrics = imported.lyrics;
       if (imported.hasAudio !== undefined) existing.hasAudio = Boolean(imported.hasAudio);
     }
@@ -2546,14 +2965,18 @@ function pedalNext() {
   }
 
   if (displayMode === DISPLAY_MODES.CONTINUOUS) {
-    displayContent.scrollBy({ top: currentScrollAmount, behavior: 'smooth' });
-    return;
-  }
-
-  if (currentSectionIndex < currentSections.length - 1) {
-    currentSectionIndex++;
-    showCurrentSection();
-    return;
+    const maxScroll = displayContent.scrollHeight - displayContent.clientHeight;
+    const isAtBottom = maxScroll <= 5 || (displayContent.scrollTop + displayContent.clientHeight >= displayContent.scrollHeight - 15);
+    if (!isAtBottom) {
+      displayContent.scrollBy({ top: currentScrollAmount, behavior: 'smooth' });
+      return;
+    }
+  } else {
+    if (currentSectionIndex < currentSections.length - 1) {
+      currentSectionIndex++;
+      showCurrentSection();
+      return;
+    }
   }
 
   goToNextSong();
@@ -2573,17 +2996,21 @@ function pedalBack() {
   if (!screens.display.classList.contains('active')) return;
 
   if (currentDisplaySpeechId) {
-    openPicker();
-    return;
-  }
-
-  if (showingTitle) {
-    openPicker();
+    goToPreviousSong();
     return;
   }
 
   if (displayMode === DISPLAY_MODES.CONTINUOUS) {
+    if (displayContent.scrollTop <= 15) {
+      goToPreviousSong();
+      return;
+    }
     displayContent.scrollBy({ top: -currentScrollAmount, behavior: 'smooth' });
+    return;
+  }
+
+  if (showingTitle) {
+    goToPreviousSong();
     return;
   }
 
@@ -2595,6 +3022,37 @@ function pedalBack() {
 
   showingTitle = true;
   showCurrentSection();
+}
+
+function goToPreviousSong() {
+  const playable = getSetlistPlayableItems();
+  if (playable.length <= 1) return;
+
+  let curIdx = -1;
+  if (currentDisplayId) {
+    curIdx = playable.findIndex(i => i.type === 'song' && i.songId === currentDisplayId);
+  } else if (currentDisplaySpeechId) {
+    curIdx = playable.findIndex(i => i.type === 'speech' && i.id === currentDisplaySpeechId);
+  }
+
+  const prevIdx = curIdx > 0 ? curIdx - 1 : playable.length - 1;
+  const prevItem = playable[prevIdx];
+  if (!prevItem) return;
+
+  if (prevItem.type === 'song') {
+    const prevSong = songs.find(s => s.id === prevItem.songId);
+    if (!prevSong) return;
+    const prevSections = parseSections(prevSong.lyrics);
+    const lastIdx = Math.max(0, prevSections.length - 1);
+    showSong(prevSong.id, lastIdx, false);
+    if (displayMode === DISPLAY_MODES.CONTINUOUS && displayContent) {
+      setTimeout(() => {
+        displayContent.scrollTop = displayContent.scrollHeight;
+      }, 50);
+    }
+  } else if (prevItem.type === 'speech') {
+    showSpeech(prevItem.id);
+  }
 }
 
 function goToNextSong(force = false) {
@@ -2814,6 +3272,17 @@ document.getElementById('edit-speech-overlay')?.addEventListener('click', e => {
   if (e.target === document.getElementById('edit-speech-overlay')) closeSpeechModal();
 });
 
+// Project listeners
+projectDropdown?.addEventListener('change', e => switchProject(e.target.value));
+btnNewProject?.addEventListener('click', () => {
+  const name = prompt('Nombre del nuevo proyecto musical:', `Proyecto ${projects.length + 1}`);
+  if (!name?.trim()) return;
+  createProject(name.trim());
+});
+btnRenameProject?.addEventListener('click', renameActiveProject);
+btnDeleteProject?.addEventListener('click', deleteActiveProject);
+btnToggleProjectBar?.addEventListener('click', toggleProjectBarVisibility);
+
 document.getElementById('btn-new-setlist')?.addEventListener('click', () => {
   const name = prompt('Nombre del nuevo setlist:', `Setlist ${setlists.length + 1}`);
   if (!name?.trim()) return;
@@ -2860,6 +3329,10 @@ customColorInput?.addEventListener('input', e => {
 
 btnPreviewSong?.addEventListener('click', openSongPreview);
 btnBackToEdit?.addEventListener('click', exitPreviewToEdit);
+btnOpenPicker?.addEventListener('click', e => {
+  e.stopPropagation();
+  openPicker();
+});
 
 document.getElementById('btn-exit-display').addEventListener('click', () => {
   if (document.fullscreenElement) document.exitFullscreen?.();
@@ -2912,6 +3385,11 @@ btnFontUp?.addEventListener('click', e => {
 btnFontDown?.addEventListener('click', e => {
   e.stopPropagation();
   adjustFontSize(-FONT_SIZE_STEP);
+});
+
+btnAutoFitFont?.addEventListener('click', e => {
+  e.stopPropagation();
+  autoFitFontSize();
 });
 
 document.addEventListener('click', e => {
@@ -3001,9 +3479,17 @@ importFileInput?.addEventListener('change', async e => {
   try {
     const raw = JSON.parse(await file.text());
     const data = validateImportData(raw);
-    const msg = `¿Importar ${data.songs.length} canción${data.songs.length === 1 ? '' : 'es'}? Se fusionarán con la biblioteca actual y se añadirán al setlist las que falten.`;
-    if (!confirm(msg)) return;
-    await importLibrary(data);
+
+    if (data.isMultiProject) {
+      const count = data.projects.length;
+      const msg = `El archivo contiene ${count} proyecto${count === 1 ? '' : 's'} musical${count === 1 ? '' : 'es'}.\n¿Deseas importarlos? (Se añadirán/fusionarán con tus proyectos actuales).`;
+      if (!confirm(msg)) return;
+      await importProjectsData(data);
+    } else {
+      const msg = `¿Importar ${data.songs.length} canción${data.songs.length === 1 ? '' : 'es'}? Se fusionarán con la biblioteca actual y se añadirán al setlist las que falten.`;
+      if (!confirm(msg)) return;
+      await importLibrary(data);
+    }
   } catch (err) {
     alert(err.message || 'No se pudo importar el archivo.');
   }
@@ -3340,6 +3826,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'f' || e.key === 'F') toggleFullscreen();
   if (e.key === '+' || e.key === '=') adjustFontSize(FONT_SIZE_STEP);
   if (e.key === '-') adjustFontSize(-FONT_SIZE_STEP);
+  if (e.key === 'w' || e.key === 'W' || e.key === 'a' || e.key === 'A') autoFitFontSize();
 });
 
 document.addEventListener('visibilitychange', () => {
@@ -3367,8 +3854,8 @@ const manageNavTabs = document.getElementById('manage-nav-tabs');
 const manageMain = document.querySelector('.manage-main');
 
 function setActiveTab(tabName) {
-  const validTabs = ['all', 'setlist', 'library', 'settings'];
-  const activeTab = validTabs.includes(tabName) ? tabName : 'all';
+  const validTabs = ['setlist', 'library', 'settings'];
+  const activeTab = validTabs.includes(tabName) ? tabName : 'setlist';
   localStorage.setItem(TAB_KEY, activeTab);
   if (manageMain) {
     manageMain.dataset.tab = activeTab;
@@ -3387,14 +3874,12 @@ manageNavTabs?.addEventListener('click', e => {
 });
 
 // ── Init ──
-loadSongs();
-loadSetlists();
-loadSectionFonts();
-loadScrollAmounts();
+loadProjects();
+renderProjectSelector();
 renderSetlistSelector();
 renderAll();
 updatePedalKeyButtons();
 updateModeButton();
 updateFullscreenButtons();
-setActiveTab(localStorage.getItem(TAB_KEY) || 'all');
+setActiveTab(localStorage.getItem(TAB_KEY) || 'setlist');
 

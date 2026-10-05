@@ -22,11 +22,23 @@
         </div>
         <button id="btn-manage-fullscreen" class="btn btn-ghost btn-icon" aria-label="Pantalla completa" title="Pantalla completa">⛶</button>
       </div>
+
+      <!-- Selector de Proyecto Musical -->
+      <div id="project-selector-bar" class="project-selector-bar">
+        <div class="project-selector-main">
+          <span class="project-icon">🎸</span>
+          <span id="project-name-display" class="project-name-display hidden"></span>
+          <select id="project-dropdown" class="project-dropdown" aria-label="Seleccionar proyecto musical"></select>
+        </div>
+        <div id="project-selector-actions" class="project-selector-actions">
+          <button type="button" id="btn-new-project" class="btn btn-ghost" title="Nuevo proyecto musical">+ Proyecto</button>
+          <button type="button" id="btn-rename-project" class="btn btn-ghost btn-icon" title="Renombrar proyecto">✎</button>
+          <button type="button" id="btn-delete-project" class="btn btn-ghost btn-icon" title="Eliminar proyecto">🗑</button>
+        </div>
+        <button type="button" id="btn-toggle-project-bar" class="btn btn-ghost btn-icon project-toggle-btn" title="Ocultar opciones de proyecto">🙈</button>
+      </div>
       <nav id="manage-nav-tabs" class="nav-tabs" aria-label="Navegación principal">
-        <button type="button" class="tab-btn active" data-tab="all">
-          <span class="tab-icon">🏠</span> Principal
-        </button>
-        <button type="button" class="tab-btn" data-tab="setlist">
+        <button type="button" class="tab-btn active" data-tab="setlist">
           <span class="tab-icon">📜</span> Setlist
         </button>
         <button type="button" class="tab-btn" data-tab="library">
@@ -249,6 +261,10 @@
               <button type="button" id="btn-align-left" class="btn btn-ghost btn-format active" title="Alinear a la izquierda">⬅️</button>
               <button type="button" id="btn-align-center" class="btn btn-ghost btn-format" title="Centrar letra">↔️</button>
             </div>
+            <label class="btn-autofit-checkbox" title="Ajuste automático de fuente al ancho o ancho-alto">
+              <input type="checkbox" id="song-autofit" class="form-checkbox-small">
+              <span class="autofit-label-text">Auto</span>
+            </label>
           </div>
         </div>
         <div id="song-lyrics" class="song-lyrics-editor" contenteditable="true" data-placeholder="Pega o escribe la letra aquí&#10;&#10;Deja una línea en blanco entre estrofas&#10;(cada estrofa es un paso del pedal)"></div>
@@ -269,34 +285,58 @@
       <div class="display-actions">
         <button id="btn-back-to-edit" class="btn btn-ghost btn-back-edit hidden" title="Volver a edición de canción">← Volver a edición</button>
 
+        <div class="control-item-labeled">
+          <span class="control-label">Menú</span>
+          <button id="btn-open-picker" class="btn btn-ghost" aria-label="Menú de canciones" title="Menú de canciones (lista rápida)">📋</button>
+        </div>
+
         <!-- Grupo de Modo Scroll con botón e icono/flecha ABAJO -->
-        <div id="scroll-mode-wrapper" class="control-dropdown-wrapper">
-          <div class="control-btn-stacked">
-            <button id="btn-toggle-mode" class="btn btn-ghost" aria-label="Cambiar modo de visualización" title="Modo de visualización">📄</button>
-            <button id="btn-scroll-step-toggle" class="btn btn-ghost btn-arrow-down hidden" title="Ajustar avance de scroll (px)" aria-label="Ajustar avance">▼</button>
-          </div>
-          <div id="scroll-controls-panel" class="controls-popover-below hidden" aria-label="Control de avance de scroll">
-            <button id="btn-scroll-down" class="btn btn-ghost btn-popover-step" title="Disminuir avance (-50px)" aria-label="Reducir avance">◀</button>
-            <span id="scroll-amount-display" class="popover-val-display">400px</span>
-            <button id="btn-scroll-up" class="btn btn-ghost btn-popover-step" title="Aumentar avance (+50px)" aria-label="Aumentar avance">▶</button>
+        <div class="control-item-labeled">
+          <span class="control-label">Modo</span>
+          <div id="scroll-mode-wrapper" class="control-dropdown-wrapper">
+            <div class="control-btn-stacked">
+              <button id="btn-toggle-mode" class="btn btn-ghost" aria-label="Cambiar modo de visualización" title="Modo de visualización">📄</button>
+              <button id="btn-scroll-step-toggle" class="btn btn-ghost btn-arrow-down hidden" title="Ajustar avance de scroll (px)" aria-label="Ajustar avance">▼</button>
+            </div>
+            <div id="scroll-controls-panel" class="controls-popover-below hidden" aria-label="Control de avance de scroll">
+              <button id="btn-scroll-down" class="btn btn-ghost btn-popover-step" title="Disminuir avance (-50px)" aria-label="Reducir avance">◀</button>
+              <span id="scroll-amount-display" class="popover-val-display">400px</span>
+              <button id="btn-scroll-up" class="btn btn-ghost btn-popover-step" title="Aumentar avance (+50px)" aria-label="Aumentar avance">▶</button>
+            </div>
           </div>
         </div>
 
         <!-- Grupo de Tamaño de Letra (A±) con flecha ABAJO -->
-        <div id="font-mode-wrapper" class="control-dropdown-wrapper">
-          <div class="control-btn-stacked">
-            <button id="btn-edit" class="btn btn-ghost btn-font-size-toggle" aria-label="Tamaño de letra" title="Tamaño de letra">A<small class="font-pm">±</small></button>
-            <button id="btn-font-step-toggle" class="btn btn-ghost btn-arrow-down" title="Ajustar tamaño de letra" aria-label="Ajustar tamaño">▼</button>
-          </div>
-          <div id="font-controls-panel" class="controls-popover-below hidden" aria-label="Tamaño de letra">
-            <button id="btn-font-down" class="btn btn-ghost btn-popover-step" title="Letra más pequeña" aria-label="Letra más pequeña">A−</button>
-            <span id="font-size-display" class="popover-val-display">100%</span>
-            <button id="btn-font-up" class="btn btn-ghost btn-popover-step" title="Letra más grande" aria-label="Letra más grande">A+</button>
+        <div class="control-item-labeled">
+          <span class="control-label">Tamaño</span>
+          <div id="font-mode-wrapper" class="control-dropdown-wrapper">
+            <div class="control-btn-stacked">
+              <button id="btn-edit" class="btn btn-ghost btn-font-size-toggle" aria-label="Tamaño de letra" title="Tamaño de letra">A<small class="font-pm">±</small></button>
+              <button id="btn-font-step-toggle" class="btn btn-ghost btn-arrow-down" title="Ajustar tamaño de letra" aria-label="Ajustar tamaño">▼</button>
+            </div>
+            <div id="font-controls-panel" class="controls-popover-below hidden" aria-label="Tamaño de letra">
+              <button id="btn-font-down" class="btn btn-ghost btn-popover-step" title="Letra más pequeña" aria-label="Letra más pequeña">A−</button>
+              <span id="font-size-display" class="popover-val-display">100%</span>
+              <button id="btn-font-up" class="btn btn-ghost btn-popover-step" title="Letra más grande" aria-label="Letra más grande">A+</button>
+            </div>
           </div>
         </div>
 
-        <button id="btn-fullscreen" class="btn btn-ghost" aria-label="Pantalla completa" title="Pantalla completa">⛶</button>
-        <button id="btn-exit-display" class="btn btn-ghost" aria-label="Salir" title="Salir">✕</button>
+        <!-- Adaptar letra a la pantalla (ancho y alto) -->
+        <div class="control-item-labeled">
+          <span class="control-label">Auto</span>
+          <button id="btn-auto-fit-font" class="btn btn-ghost btn-font-size-toggle" aria-label="Adaptar letra al tamaño de la pantalla" title="Adaptar letra a la pantalla (ancho y alto)">A<small class="font-pm">↔</small></button>
+        </div>
+
+        <div class="control-item-labeled">
+          <span class="control-label">Full</span>
+          <button id="btn-fullscreen" class="btn btn-ghost" aria-label="Pantalla completa" title="Pantalla completa">⛶</button>
+        </div>
+
+        <div class="control-item-labeled">
+          <span class="control-label">Salir</span>
+          <button id="btn-exit-display" class="btn btn-ghost" aria-label="Salir" title="Salir">✕</button>
+        </div>
       </div>
     </header>
     <div id="display-content" class="display-content"></div>
